@@ -1,0 +1,285 @@
+{
+  "companyName": {
+    "en": "JWL Travel Gear",
+    "zh": "启东金万利"
+  },
+  "metadata": {
+    "en": {
+      "title": "JWL Travel Gear - Premium Bag Manufacturer",
+      "description": "Professional bag and luggage manufacturing. OEM/ODM services for global brands."
+    },
+    "zh": {
+      "title": "启东金万利 - 高端箱包制造商",
+      "description": "专业的箱包和行李箱制造。为全球品牌提供 OEM/ODM 服务。"
+    }
+  },
+  "nav": {
+    "productSearch": { "en": "Product Search", "zh": "产品搜索" },
+    "home": { "en": "Home", "zh": "首页" },
+    "about": { "en": "About Us", "zh": "关于我们" },
+    "products": { "en": "Products", "zh": "产品展示" },
+    "services": { "en": "Services", "zh": "服务项目" },
+    "contact": { "en": "Contact", "zh": "联系我们" }
+  },
+  "hero": {
+    "title": {
+      "en": "Premium Bag Manufacturer with Years of Expertise",
+      "zh": "多年专业箱包制造经验"
+    },
+    "subtitle": {
+      "en": "Your trusted partner for high-quality custom bags and luggage. Serving global brands with precision and care.",
+      "zh": "您值得信赖的高品质定制箱包合作伙伴。以精湛工艺服务全球知名品牌。"
+    },
+    "cta": { "en": "Explore Products", "zh": "浏览产品" },
+    "contact": { "en": "Contact Us", "zh": "联系我们" },
+    "slides": {
+      "slide1": {
+        "image": "/images/hero/slide1.jpg",
+        "title": { "en": "Premium Bag Manufacturer with Years of Expertise", "zh": "多年专业箱包制造经验" },
+        "subtitle": { "en": "Your trusted partner for high-quality custom bags and luggage. Serving global brands with precision and care.", "zh": "您值得信赖的高品质定制箱包合作伙伴。以精湛工艺服务全球知名品牌。" }
+      },
+      "slide2": {
+        "image": "/images/hero/slide2.jpg",
+        "title": { "en": "Innovative Designs for Modern Brands", "zh": "现代品牌的创新设计" },
+        "subtitle": { "en": "From concept to creation, we bring your vision to life with precision manufacturing.", "zh": "从概念到创造，我们通过精密制造将您的愿景变为现实。" }
+      },
+      "slide3": {
+        "image": "/images/hero/slide3.jpg",
+        "title": { "en": "Global Logistics & Supply Chain", "zh": "全球物流与供应链" },
+        "subtitle": { "en": "Reliable shipping to USA, Europe, and Asia. We handle the complexities so you don't have to.", "zh": "可靠运往美国、欧洲和亚洲。我们处理复杂事务，让您无后顾之忧。" }
+      },
+      "slide4": {
+        "image": "/images/hero/slide4.jpg",
+        "title": { "en": "Sustainable & Eco-Friendly Options", "zh": "可持续与环保选择" },
+        "subtitle": { "en": "Committed to responsible manufacturing with recycled materials and ethical practices.", "zh": "致力于使用再生材料和道德实践进行负责任的制造。" }
+      }
+    }
+  },
+  "about": {
+    "title": { "en": "About JWL Travel Gear", "zh": "关于启东金万利" },
+    "description": {
+      "en": "Qidong Jinwanli (JWL Travel Gear) is a premier bag manufacturer with a rich history of craftsmanship. Located in Qidong, we specialize in producing high-quality bags for international markets including Japan, USA, and Italy.",
+      "zh": "启东金万利（JWL Travel Gear）是一家拥有多年历史的顶级箱包制造商。我们位于启东，专注于为日本、美国和意大利等国际市场生产高品质箱包。"
+    },
+    "mission": {
+      "en": "We are dedicated to delivering superior quality, innovative designs, and reliable manufacturing services to our global partners.",
+      "zh": "我们致力于为全球合作伙伴提供卓越的品质、创新的设计和可靠的制造服务。"
+    },
+    "imageDesc": {
+      "en": "Our modern manufacturing facility in Qidong, equipped with the latest technology and staffed by experienced professionals dedicated to quality.",
+      "zh": "我们位于启东的现代化制造工厂，配备了最新技术，并由致力于质量的经验丰富的专业人员组成。"
+    },
+    "image": "/images/about/factory.jpg",
+    "stats": {
+      "years": { "en": "Years of Experience", "zh": "多年行业经验" },
+      "markets": { "en": "Global Markets", "zh": "服务全球市场" },
+      "quality": { "en": "Quality Assurance", "zh": "品质保证" }
+    }
+  },
+  "facility": {
+    "title": { "en": "State-of-the-Art Manufacturing Facility", "zh": "先进的制造设施" },
+    "subtitle": {
+      "en": "Equipped with advanced machinery and a skilled workforce to ensure precision and efficiency.",
+      "zh": "配备先进的机械设备和熟练的员工队伍，确保生产的精度和效率。"
+    },
+    "features": {
+      "capacity": {
+        "image": "/images/facility/capacity.jpg",
+        "title": { "en": "High Production Capacity", "zh": "高产能生产线" },
+        "desc": {
+          "en": "Our facility boasts a high daily output capability, meeting the demands of large-scale international orders efficiently. With multiple production lines running in parallel, we ensure timely delivery for all our clients.",
+          "zh": "我们的工厂拥有极高的日产量能力，能够高效满足大规模国际订单的需求。多条生产线并行运行，确保客户订单准时交付。"
+        }
+      },
+      "machinery": {
+        "image": "/images/facility/machinery.jpg",
+        "title": { "en": "Advanced Machinery", "zh": "先进机械设备" },
+        "desc": {
+          "en": "We utilize the latest sewing and cutting technology to ensure precision and durability in every product. Our investment in automation helps reduce errors and improve overall product consistency.",
+          "zh": "我们利用最新的缝纫和裁剪技术，确保每件产品的精度和耐用性。我们在自动化方面的投入有助于减少误差并提高整体产品的一致性。"
+        }
+      },
+      "inspection": {
+        "image": "/images/facility/inspection.jpg",
+        "title": { "en": "Rigorous Inspection", "zh": "严格的质量检测" },
+        "desc": {
+          "en": "A dedicated quality assurance team conducts multi-stage inspections to guarantee defect-free products. From raw material intake to final packaging, every step is monitored for quality compliance.",
+          "zh": "专门的质量保证团队进行多阶段检查，以确产品零缺陷。从原材料入库到最终包装，每一步都受到严格监控以符合质量标准。"
+        }
+      }
+    }
+  },
+  "certifications": {
+    "title": { "en": "Our Certifications & Standards", "zh": "我们的认证与标准" },
+    "subtitle": {
+      "en": "We adhere to the highest international standards for quality, safety, and social responsibility.",
+      "zh": "我们坚持最高的国际质量、安全和社会责任标准。"
+    }
+  },
+  "brands": {
+    "title": { "en": "Trusted by Global Brands", "zh": "合作品牌" },
+    "subtitle": {
+      "en": "We are proud to manufacture for some of the world's most recognized names.",
+      "zh": "我们很荣幸为众多世界知名品牌提供代工服务。"
+    },
+    "list": {
+      "en": ["Nestlé", "Ferrari", "Abbott Nutrition", "New Balance", "FILA", "BAGGU", "Diplomat", "Disney"],
+      "zh": ["雀巢", "法拉利", "雅培营养", "New Balance", "斐乐 (FILA)", "BAGGU", "Diplomat", "迪士尼"]
+    }
+  },
+  "samples": {
+    "title": { "en": "Customer Samples", "zh": "客户样品展示" },
+    "subtitle": {
+      "en": "A glimpse into our extensive portfolio of manufactured products.",
+      "zh": "浏览我们丰富的产品制造案例。"
+    },
+    "viewAll": { "en": "View All Samples", "zh": "查看所有样品" },
+    "galleryTitle": { "en": "Product Sample Gallery", "zh": "产品样品图库" }
+  },
+  "products": {
+    "title": { "en": "Our Product Range", "zh": "产品系列" },
+    "subtitle": {
+      "en": "From fashion to function, we manufacture a wide variety of bags.",
+      "zh": "从时尚到功能，我们生产各种类型的包袋。"
+    },
+    "searchButton": { "en": "Search All Products", "zh": "搜索所有产品" },
+    "backToCategories": { "en": "Back to Categories", "zh": "返回分类" },
+    "backTo": { "en": "Back to", "zh": "返回" },
+    "viewDetails": { "en": "View Details", "zh": "查看详情" },
+    "inquire": { "en": "Inquire About This Product", "zh": "咨询此产品" },
+    "searchPlaceholder": { "en": "Search products...", "zh": "搜索产品" },
+    "showMore": { "en": "Show More", "zh": "展开更多" },
+    "showLess": { "en": "Show Less", "zh": "收起" },
+    "selectVariant": { "en": "Select Variant", "zh": "选择款式" },
+    "minimumOrder": {
+      "en": "Minimum order quantities may apply. Contact us for details.",
+      "zh": "可能适用最低订购量。请联系我们了解详情。"
+    },
+    "materials": { "en": "Materials", "zh": "材质" },
+    "specifications": { "en": "Specifications", "zh": "规格参数" },
+    "loading": { "en": "Loading...", "zh": "加载中..." },
+    "notFound": { "en": "Product not found", "zh": "未找到产品" },
+    "noProducts": { "en": "No products found in this category.", "zh": "此分类下暂无产品。" }
+  },
+  "services": {
+    "title": { "en": "Our Services", "zh": "我们的服务" },
+    "subtitle": {
+      "en": "Comprehensive manufacturing solutions tailored to your needs.",
+      "zh": "为您量身定制的全面制造解决方案。"
+    },
+    "items": {
+      "custom": {
+        "title": { "en": "Custom Design", "zh": "定制设计" },
+        "desc": {
+          "en": "We bring your concepts to life with our expert design team.",
+          "zh": "我们的专家设计团队将您的概念转化为现实。"
+        }
+      },
+      "oem": {
+        "title": { "en": "OEM/ODM Manufacturing", "zh": "OEM/ODM 代工" },
+        "desc": {
+          "en": "High-capacity production for global brands with strict quality control.",
+          "zh": "拥有严格质量控制的高产能生产线，服务全球品牌。"
+        }
+      },
+      "quality": {
+        "title": { "en": "Quality Control", "zh": "质量控制" },
+        "desc": {
+          "en": "Rigorous testing and inspection at every stage of production.",
+          "zh": "生产每个阶段都进行严格的测试和检查。"
+        }
+      }
+    }
+  },
+  "contact": {
+    "title": { "en": "Get in Touch", "zh": "联系我们" },
+    "subtitle": {
+      "en": "Interested in working with us? Contact our team today.",
+      "zh": "有兴趣与我们合作吗？请立即联系我们的团队。"
+    },
+    "form": {
+      "name": { "en": "Name", "zh": "姓名" },
+      "email": { "en": "Email", "zh": "电子邮箱" },
+      "message": { "en": "Message", "zh": "留言" },
+      "submit": { "en": "Send Message", "zh": "发送留言" }
+    },
+    "info": {
+      "addressLabel": { "en": "Address", "zh": "地址" },
+      "phoneLabel": { "en": "Phone", "zh": "电话" },
+      "faxLabel": { "en": "Fax", "zh": "传真" },
+      "mobileLabel": { "en": "Mobile / WeChat", "zh": "手机 / 微信" },
+      "qqLabel": { "en": "QQ", "zh": "QQ" },
+      "emailLabel": { "en": "Email", "zh": "邮箱" },
+      "websiteLabel": { "en": "Website", "zh": "网址" },
+      "address": {
+        "en": "No.22 Huifeng Street, Huifeng Town, Qidong, Jiangsu, China",
+        "zh": "中国江苏省启东市汇丰镇汇丰街22号"
+      },
+      "phone": {
+        "en": "0086-513-83692989 / 83697988",
+        "zh": "0086-513-83692989 / 83697988"
+      },
+      "fax": {
+        "en": "0086-513-83695988",
+        "zh": "0086-513-83695988"
+      },
+      "mobile": {
+        "en": "86-18606129588 (WeChat) / 86-18015939588",
+        "zh": "86-18606129588 (微信) / 86-18015939588"
+      },
+      "email": {
+        "en": "jwlliu@xyuanwei.com / jwlliu@126.com",
+        "zh": "jwlliu@xyuanwei.com / jwlliu@126.com"
+      },
+      "website": {
+        "en": "www.jwlproducts.com",
+        "zh": "www.jwlproducts.com"
+      },
+      "qq": {
+        "en": "873535671",
+        "zh": "873535671"
+      }
+    },
+    "map": {
+      "googleMapSrc": "https://www.google.com/maps/embed?pb=!1m28!1m12!1m3!1d425345.0135835616!2d121.43653139822452!3d31.523528249021025!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!4m13!3e0!4m5!1s0x35b2434e797d25e9%3A0x3344b02534063229!2sShanghai%20Pudong%20International%20Airport%20(PVG)%2C%20S1%20Yingbin%20Expy%2C%20Pudong%2C%20Shanghai%2C%20China!3m2!1d31.1443439!2d121.808273!4m5!1s0x35b37d404d025b65%3A0x52277d32c525f38e!2sQidong%2C%20Nantong%2C%20Jiangsu%2C%20China!3m2!1d31.811197!2d121.658825!5e0!3m2!1sen!2sus!4v1710000000000!5m2!1sen!2sus",
+      "baiduMapUrl": "https://j.map.baidu.com/5c/wJ",
+      "baiduStaticImage": "https://api.map.baidu.com/staticimage/v2?ak=E4805d16520de693a3fe707cdc962045&center=121.66,31.81&width=600&height=600&zoom=11",
+      "baiduAddressTitle": { "en": "Qidong, Jiangsu", "zh": "江苏省启东市" },
+      "baiduAddressDesc": {
+        "en": "Our factory is located in Qidong, Jiangsu, just 1.5 hours drive from Shanghai Pudong International Airport.",
+        "zh": "我们的工厂位于江苏启东，距离上海浦东国际机场仅1.5小时车程。"
+      },
+      "baiduButtonText": { "en": "View on Baidu Map", "zh": "在百度地图中查看" },
+      "overlayTitle": { "en": "Visit Factory", "zh": "参观工厂" },
+      "overlayDesc": {
+        "en": "Located just 1.5 hours from Shanghai Pudong International Airport (PVG). We offer shuttle service for visiting clients.",
+        "zh": "位于上海浦东国际机场 (PVG) 仅 1.5 小时车程。我们为来访客户提供班车服务。"
+      }
+    }
+  },
+  "chat": {
+    "title": { "en": "JWL AI Support", "zh": "AI客户支持" },
+    "greeting": { "en": "Hello! How can I help you today?", "zh": "您好！请问有什么可以帮您？" },
+    "askContact": {
+      "en": "Thank you for your inquiry. To better assist you, could you please provide your contact details?",
+      "zh": "谢谢您的咨询。为了更好地为您服务，请提供您的联系方式。"
+    },
+    "finalResponse": {
+      "en": "Thank you! A sales representative will review your request and contact you shortly.",
+      "zh": "谢谢！我们的销售代表将审核您的请求并尽快与您联系。"
+    },
+    "form": {
+      "title": { "en": "Your Contact Details", "zh": "您的联系方式" },
+      "emailPlaceholder": { "en": "Email Address", "zh": "电子邮箱" },
+      "phonePlaceholder": { "en": "Phone Number", "zh": "电话号码" },
+      "submitButton": { "en": "Submit Info", "zh": "提交信息" }
+    },
+    "inputPlaceholder": { "en": "Type your message...", "zh": "输入您的消息..." }
+  },
+  "footer": {
+    "rights": {
+      "en": "© 2024 JWL Travel Gear. All rights reserved.",
+      "zh": "© 2024 启东金万利. 版权所有."
+    }
+  }
+}

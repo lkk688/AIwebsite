@@ -1,0 +1,88 @@
+{
+  "id": "jwl-crossbody-037",
+  "slug": "compact-zip-camera-crossbody-bag",
+  "assetDir": "jwl-crossbody-037",
+  "mainCount": 7,
+
+  "category": "fashion",
+  "tags": ["everyday", "crossbody", "travel-organizers", "techCarry", "minimalist", "camera-bag"],
+
+  "name": {
+    "en": "Compact Zip Camera Crossbody Bag (Multi-Color)",
+    "zh": "轻便拉链相机斜挎包（多颜色）"
+  },
+
+  "description": {
+    "en": "A compact camera-style crossbody bag with a structured silhouette and smooth zip closure. Ideal for phone, wallet, compact camera, and daily essentials. Great for commuting and travel. OEM/ODM customization available for fabrics (including recycled options), size, padding (optional), pocket layout, logo patch, lining, zippers (YKK optional) & hardware, and packaging.",
+    "zh": "相机包造型的小方包斜挎包，包型挺括，拉链开合顺畅。适合收纳手机、钱包、随身小物，也可作为轻便相机包使用，通勤旅行皆宜。支持 OEM/ODM 定制：面料（可选再生环保材料）、尺寸、可选加棉防护、口袋结构、Logo 工艺、内里、拉链（可选 YKK）与五金、包装等。"
+  },
+
+  "materials": {
+    "en": [
+      "Outer: Nylon / Polyester (customizable; recycled options available)",
+      "Lining: Polyester (customizable)",
+      "Zipper: Standard zipper or YKK optional",
+      "Strap: Adjustable webbing strap (customizable)",
+      "Hardware: Strap adjuster + hooks/D-rings (customizable)",
+      "Optional Padding: Foam/EVA padding for protection (customizable)",
+      "Logo: Woven label / rubber patch / embroidery (customizable)"
+    ],
+    "zh": [
+      "面料：尼龙/涤纶（可定制；可选再生环保材料）",
+      "内里：涤纶（可定制）",
+      "拉链：常规拉链或可选 YKK",
+      "肩带：可调节织带肩带（可定制）",
+      "五金：调节扣/挂钩/D 环等（可定制）",
+      "可选加棉：海绵/EVA 防护衬垫（可定制）",
+      "Logo：织标/胶章/刺绣（可定制）"
+    ]
+  },
+
+  "specifications": {
+    "en": {
+      "Estimated Dimensions": "18–24cm (W) × 12–16cm (H) × 6–10cm (D) (customizable)",
+      "Estimated Capacity": "1.5–3.5L (customizable)",
+      "Closure": "Top zipper closure",
+      "Carry Style": "Crossbody / shoulder (adjustable strap)",
+      "Use Case": "Daily essentials, compact camera carry, travel organizer",
+      "Colorways": "Multiple SKU color options (see variants)",
+      "Customization": "Fabric, color, size, padding, pockets, logo, lining, zipper & hardware, packaging"
+    },
+    "zh": {
+      "参考尺寸": "宽 18–24cm × 高 12–16cm × 深 6–10cm（可定制）",
+      "参考容量": "1.5–3.5L（可定制）",
+      "闭合方式": "顶部拉链闭合",
+      "背负方式": "斜挎/单肩（肩带可调）",
+      "适用场景": "日常随身/轻便相机包/旅行收纳",
+      "颜色款式": "多 SKU 配色（见 variants）",
+      "可定制": "面料配色、尺寸、加棉、防护结构、口袋、Logo、内里、拉链五金、包装"
+    }
+  },
+
+  "variants": [
+    { "key": "beige", "sku": "SKU-BEIGE", "en": "Beige", "zh": "米色" },
+    { "key": "olive", "sku": "SKU-OLIVE", "en": "Olive", "zh": "橄榄绿" },
+    { "key": "brown", "sku": "SKU-BROWN", "en": "Brown", "zh": "棕色" }
+  ],
+
+  "imageJob": {
+    "src": "/Users/kaikailiu/Documents/JWL/2025.12.25/37",
+    "dst": "./public/images/products",
+    "slug": "compact-zip-camera-crossbody-bag",
+    "assetDir": "jwl-crossbody-037",
+
+    "sizes": [600, 1600],
+    "thumb": 300,
+    "webp_quality": 82,
+    "jpg_quality": 85,
+    "export_jpg_fallback": true,
+
+    "sku_dirname": "SKU",
+
+    "variants": {
+      "IMG_4692.jpg": { "key": "beige", "en": "Beige", "zh": "米色" },
+      "IMG_4694.jpg": { "key": "olive", "en": "Olive", "zh": "橄榄绿" },
+      "IMG_4695.jpg": { "key": "brown", "en": "Brown", "zh": "棕色" }
+    }
+  }
+}

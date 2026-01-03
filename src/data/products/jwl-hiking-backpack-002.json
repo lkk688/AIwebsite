@@ -1,0 +1,86 @@
+{
+  "id": "jwl-hiking-backpack-002",
+  "slug": "outdoor-hiking-backpack-multi-pocket",
+  "assetDir": "jwl-hiking-backpack-002",
+  "mainCount": 6,
+
+  "category": "outdoor",
+  "tags": ["outdoor", "hiking", "travel", "water-resistant", "multi-pocket", "heavy-duty"],
+
+  "name": {
+    "en": "Outdoor Hiking Backpack (Multi-Color)",
+    "zh": "户外登山双肩背包（多颜色）"
+  },
+
+  "description": {
+    "en": "A rugged outdoor hiking backpack built for day hikes and travel. Features a multi-pocket layout, supportive back system, and external attachment points for gear. OEM/ODM customization available for fabrics (including recycled options), capacity, pocket configuration, logo patch, lining, zippers (YKK optional) & hardware, and packaging.",
+    "zh": "适合徒步与旅行的耐用户外双肩背包。多口袋收纳结构，背负支撑更舒适，并配有外部挂点便于固定装备。支持 OEM/ODM 定制：面料（可选再生环保材料）、容量、口袋配置、Logo 工艺、内里、拉链（可选 YKK）与五金、包装等。"
+  },
+
+  "materials": {
+    "en": [
+      "Outer: High-density Nylon / Polyester (customizable; recycled options available)",
+      "Lining: Polyester (customizable)",
+      "Zipper: Standard zipper or YKK optional",
+      "Webbing: Reinforced webbing straps (customizable)",
+      "Hardware: Buckles / adjusters / D-rings (customizable)",
+      "Logo: Woven label / rubber patch / embroidery (customizable)"
+    ],
+    "zh": [
+      "面料：高密度尼龙/涤纶（可定制；可选再生环保材料）",
+      "内里：涤纶（可定制）",
+      "拉链：常规拉链或可选 YKK",
+      "织带：加固织带肩带/束带（可定制）",
+      "五金：插扣/调节扣/D 环等（可定制）",
+      "Logo：织标/胶章/刺绣（可定制）"
+    ]
+  },
+
+  "specifications": {
+    "en": {
+      "Estimated Capacity": "25–35L (customizable)",
+      "Estimated Dimensions": "48–55cm (H) × 28–34cm (W) × 16–22cm (D) (customizable)",
+      "Compartments": "Main compartment + front pocket + side pockets + internal organizer (options)",
+      "Back System": "Padded back panel & shoulder straps (customizable)",
+      "Gear Attachments": "External loops/straps for gear carry",
+      "Use Case": "Day hike, outdoor travel, commute-ready outdoor pack",
+      "Colorways": "Multiple SKU color options (see variants)",
+      "Customization": "Fabric, capacity, pockets, logo, lining, zippers & hardware, packaging"
+    },
+    "zh": {
+      "参考容量": "25–35L（可定制）",
+      "参考尺寸": "高 48–55cm × 宽 28–34cm × 深 16–22cm（可定制）",
+      "收纳结构": "主仓 + 前袋 + 侧袋 + 内部收纳（可选）",
+      "背负系统": "背部/肩带加厚衬垫（可定制）",
+      "外挂功能": "外部挂点/束带便于携带装备",
+      "适用场景": "徒步、户外旅行、通勤户外风背包",
+      "颜色款式": "多 SKU 配色（见 variants）",
+      "可定制": "面料、容量、口袋结构、Logo、内里、拉链五金、包装"
+    }
+  },
+
+  "variants": [
+    { "key": "navy", "sku": "SKU-NAVY", "en": "Navy", "zh": "海军蓝" },
+    { "key": "khaki", "sku": "SKU-KHAKI", "en": "Khaki", "zh": "卡其色" }
+  ],
+
+  "imageJob": {
+    "src": "/Users/kaikailiu/Documents/JWL/2022pics/2",
+    "dst": "./public/images/products",
+    "slug": "outdoor-hiking-backpack-multi-pocket",
+    "assetDir": "jwl-hiking-backpack-002",
+
+    "sizes": [600, 1600],
+    "thumb": 300,
+    "webp_quality": 82,
+    "jpg_quality": 85,
+    "export_jpg_fallback": true,
+
+    "sku_dirname": "SKU",
+
+    "variants": {
+      "3G2A0298.JPG": { "key": "navy", "en": "Navy", "zh": "海军蓝" },
+      "3G2A0322.JPG": { "key": "khaki", "en": "Khaki", "zh": "卡其色" }
+    }
+  }
+}

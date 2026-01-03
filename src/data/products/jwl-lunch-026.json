@@ -1,0 +1,82 @@
+{
+  "id": "jwl-lunch-026",
+  "slug": "insulated-lunch-bento-tote",
+  "assetDir": "jwl-lunch-026",
+  "mainCount": 10,
+
+  "category": "travel",
+  "tags": ["travel-organizers", "everyday", "lunch", "insulated", "water-resistant"],
+
+  "name": {
+    "en": "Insulated Lunch / Bento Tote (Multi-Color)",
+    "zh": "保温午餐包/便当手提包（多颜色）"
+  },
+
+  "description": {
+    "en": "An insulated lunch/bento tote with a structured shape and easy carry handles. Features a zip-around wide opening and thermal lining to help keep food fresh—ideal for lunch boxes and meal-prep containers. OEM/ODM customization available for fabrics (including recycled options), insulation/lining spec, size, logo patch, pockets, zippers & hardware, and packaging.",
+    "zh": "保温午餐包/便当手提包，包型挺括，手提便携。拉链全开结构，内置保温层/隔热内里，帮助保持食物温度与新鲜度，适合餐盒与便当盒。支持 OEM/ODM 定制：面料（可选再生环保材料）、保温内里规格、尺寸、Logo 工艺、口袋结构、拉链五金与包装等。"
+  },
+
+  "materials": {
+    "en": [
+      "Outer: Polyester / Nylon (customizable; recycled options available)",
+      "Insulation: PE foam / EPE (customizable)",
+      "Thermal Lining: Aluminum foil / PEVA (customizable; wipe-clean option)",
+      "Zipper: Standard zipper or YKK optional",
+      "Handles: Reinforced carry handles (customizable)",
+      "Logo: Woven label / rubber patch / embroidery (customizable)"
+    ],
+    "zh": [
+      "面料：涤纶/尼龙（可定制；可选再生环保材料）",
+      "保温层：PE 泡棉/EPE（可定制）",
+      "内里：铝膜/PEVA（可定制；可选易清洁内里）",
+      "拉链：常规拉链或可选 YKK",
+      "提手：加固提手（可定制）",
+      "Logo：织标/胶章/刺绣（可定制）"
+    ]
+  },
+
+  "specifications": {
+    "en": {
+      "Estimated Dimensions": "24–30cm (L) × 14–18cm (W) × 16–20cm (H) (customizable)",
+      "Estimated Capacity": "6–12L (customizable)",
+      "Opening": "Zip-around wide opening for easy access",
+      "Thermal": "Insulated + thermal lining (spec customizable)",
+      "Use Case": "Lunch box, bento, meal prep, picnic",
+      "Customization": "Colors, fabric, insulation/lining, size, logo, pockets, zipper & hardware, packaging"
+    },
+    "zh": {
+      "参考尺寸": "长 24–30cm × 宽 14–18cm × 高 16–20cm（可定制）",
+      "参考容量": "6–12L（可定制）",
+      "开合方式": "拉链全开，取放更方便",
+      "保温结构": "保温层 + 隔热内里（规格可定制）",
+      "适用场景": "午餐便当、餐盒、备餐、野餐",
+      "可定制": "配色面料、保温内里、尺寸、Logo、口袋、拉链五金、包装"
+    }
+  },
+
+  "variants": [
+    { "key": "navy", "sku": "SKU-NAVY", "en": "Navy", "zh": "海军蓝" },
+    { "key": "lavender", "sku": "SKU-LAVENDER", "en": "Lavender", "zh": "淡紫色" }
+  ],
+
+  "imageJob": {
+    "src": "/Users/kaikailiu/Documents/JWL/2025.12.25/26",
+    "dst": "./public/images/products",
+    "slug": "insulated-lunch-bento-tote",
+    "assetDir": "jwl-lunch-026",
+
+    "sizes": [600, 1600],
+    "thumb": 300,
+    "webp_quality": 82,
+    "jpg_quality": 85,
+    "export_jpg_fallback": true,
+
+    "sku_dirname": "SKU",
+
+    "variants": {
+      "IMG_4516.jpg": { "key": "navy", "en": "Navy", "zh": "海军蓝" },
+      "IMG_4519.jpg": { "key": "lavender", "en": "Lavender", "zh": "淡紫色" }
+    }
+  }
+}

@@ -1,0 +1,84 @@
+{
+  "id": "jwl-duffel-017",
+  "slug": "utility-weekender-duffel-bag",
+  "assetDir": "jwl-duffel-017",
+  "mainCount": 8,
+
+  "category": "travel",
+  "tags": ["travel", "weekender", "sports", "everyday", "water-resistant"],
+
+  "name": {
+    "en": "Utility Weekender Duffel Bag (Multi-Color)",
+    "zh": "多功能周末旅行手提包/圆筒包（多颜色）"
+  },
+
+  "description": {
+    "en": "A versatile weekender duffel designed for travel and gym use. Features a spacious main compartment, reinforced carry handles, and an adjustable shoulder strap. OEM/ODM customization available for fabric (including recycled options), colorways, logo patch, lining, pockets, zippers & hardware, and packaging.",
+    "zh": "多功能周末旅行手提包/圆筒包，适合短途旅行与健身使用。主仓空间充足，手提加固，配可调节肩带。支持 OEM/ODM 定制：面料（可选再生环保材料）、配色、Logo 工艺、内里、口袋结构、拉链五金与包装等。"
+  },
+
+  "materials": {
+    "en": [
+      "Outer: Polyester / Nylon (customizable; recycled options available)",
+      "Lining: Polyester (customizable)",
+      "Zipper: Standard zipper or YKK optional",
+      "Strap: Adjustable shoulder strap with pad (customizable)",
+      "Hardware: Metal/plastic buckles & D-rings (customizable)",
+      "Logo: Woven label / rubber patch / embroidery (customizable)"
+    ],
+    "zh": [
+      "面料：涤纶/尼龙（可定制；可选再生环保材料）",
+      "内里：涤纶（可定制）",
+      "拉链：常规拉链或可选 YKK",
+      "肩带：可调节肩带（可选肩垫，可定制）",
+      "五金：扣具/D 环等（可定制）",
+      "Logo：织标/胶章/刺绣（可定制）"
+    ]
+  },
+
+  "specifications": {
+    "en": {
+      "Estimated Dimensions": "45–55cm (L) × 22–28cm (W) × 22–28cm (H) (customizable)",
+      "Estimated Capacity": "30–45L (customizable)",
+      "Compartments": "1 main compartment + side pocket (optional) + inner pocket (optional)",
+      "Carry Options": "Top handles + adjustable shoulder strap",
+      "Use Case": "Travel, gym, weekend trips",
+      "Customization": "Colors, fabric, logo, lining, pocket layout, zipper & hardware, packaging"
+    },
+    "zh": {
+      "参考尺寸": "长 45–55cm × 宽 22–28cm × 高 22–28cm（可定制）",
+      "参考容量": "30–45L（可定制）",
+      "收纳结构": "1 主仓 + 侧袋（可选）+ 内袋（可选）",
+      "背负方式": "手提 + 可调节肩带",
+      "适用场景": "旅行、健身、周末出行",
+      "可定制": "配色、面料、Logo、内里、口袋结构、拉链五金、包装"
+    }
+  },
+
+  "variants": [
+    { "key": "red", "sku": "SKU-RED", "en": "Red", "zh": "红色" },
+    { "key": "brown", "sku": "SKU-BROWN", "en": "Brown", "zh": "棕色" },
+    { "key": "light-grey", "sku": "SKU-LIGHT-GREY", "en": "Light Grey", "zh": "浅灰色" }
+  ],
+
+  "imageJob": {
+    "src": "/Users/kaikailiu/Documents/JWL/2025.12.25/17",
+    "dst": "./public/images/products",
+    "slug": "utility-weekender-duffel-bag",
+    "assetDir": "jwl-duffel-017",
+
+    "sizes": [600, 1600],
+    "thumb": 300,
+    "webp_quality": 82,
+    "jpg_quality": 85,
+    "export_jpg_fallback": true,
+
+    "sku_dirname": "SKU",
+
+    "variants": {
+      "IMG_4365.jpg": { "key": "red", "en": "Red", "zh": "红色" },
+      "IMG_4367.jpg": { "key": "brown", "en": "Brown", "zh": "棕色" },
+      "IMG_4371.jpg": { "key": "light-grey", "en": "Light Grey", "zh": "浅灰色" }
+    }
+  }
+}

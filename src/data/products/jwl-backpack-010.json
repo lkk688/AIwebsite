@@ -1,0 +1,78 @@
+{
+  "id": "jwl-backpack-010",
+  "slug": "classic-black-everyday-backpack",
+  "assetDir": "jwl-backpack-010",
+  "mainCount": 11,
+
+  "category": "backpacks",
+  "tags": ["everyday", "techCarry", "work", "travel-organizers", "water-resistant"],
+
+  "name": {
+    "en": "Classic Black Everyday Backpack",
+    "zh": "经典黑色日常双肩包"
+  },
+
+  "description": {
+    "en": "A classic everyday backpack in black, designed for commuting and daily carry. Features a roomy main compartment, front organizer pocket, and side bottle pocket. OEM/ODM customization available for fabrics (including recycled options), logo patch, lining, pocket layout, zippers & hardware, and packaging.",
+    "zh": "经典黑色日常双肩包，适合通勤与日常出行。主仓容量充足，前置整理口袋便于分类收纳，侧边水杯袋实用。支持 OEM/ODM 定制：面料（可选再生环保材料）、Logo 工艺、内里、口袋结构、拉链五金与包装等。"
+  },
+
+  "materials": {
+    "en": [
+      "Outer: Polyester / Nylon (customizable; recycled options available)",
+      "Lining: 210D Polyester (customizable)",
+      "Zipper: Standard zipper or YKK optional",
+      "Hardware: Metal/plastic buckles (customizable)",
+      "Padding: Foam/EVA padding for straps & back panel (customizable)",
+      "Logo: Woven label / rubber patch / embroidery (customizable)"
+    ],
+    "zh": [
+      "面料：涤纶/尼龙（可定制；可选再生环保材料）",
+      "内里：210D 涤纶（可定制）",
+      "拉链：常规拉链或可选 YKK",
+      "五金：金属/塑料扣具（可定制）",
+      "背负：肩带/背部可加海绵/EVA 衬垫（可定制）",
+      "Logo：织标/胶章/刺绣（可定制）"
+    ]
+  },
+
+  "specifications": {
+    "en": {
+      "Estimated Dimensions": "42–48cm (H) × 28–32cm (W) × 14–20cm (D) (customizable)",
+      "Estimated Capacity": "22–30L (customizable)",
+      "Compartments": "Front organizer pocket + 1 main compartment + internal sleeve (optional) + side bottle pocket",
+      "Use Case": "Commuting, work, travel, daily carry",
+      "Customization": "Colors, fabric, logo, lining, pocket layout, zipper & hardware, packaging"
+    },
+    "zh": {
+      "参考尺寸": "高 42–48cm × 宽 28–32cm × 深 14–20cm（可定制）",
+      "参考容量": "22–30L（可定制）",
+      "收纳结构": "前置整理口袋 + 1 主仓 + 内部夹层（可选）+ 侧边水杯袋",
+      "适用场景": "通勤、上班、旅行、日常",
+      "可定制": "配色、面料、Logo、内里、口袋结构、拉链五金、包装"
+    }
+  },
+
+  "variants": [
+    { "key": "black", "sku": "SKU-BLACK", "en": "Black", "zh": "黑色" }
+  ],
+
+  "imageJob": {
+    "src": "/Users/kaikailiu/Documents/JWL/2025.12.25/10",
+    "dst": "./public/images/products",
+    "slug": "classic-black-everyday-backpack",
+    "assetDir": "jwl-backpack-010",
+
+    "sizes": [600, 1600],
+    "thumb": 300,
+    "webp_quality": 82,
+    "jpg_quality": 85,
+    "export_jpg_fallback": true,
+
+    "sku_dirname": "SKU",
+
+    "variants": {
+      "IMG_4211.jpg": { "key": "black", "en": "Black", "zh": "黑色" }
+    }
+  }
+}

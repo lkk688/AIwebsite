@@ -1,0 +1,86 @@
+{
+  "id": "jwl-zip-pouch-041",
+  "slug": "compact-zip-pouch-organizer",
+  "assetDir": "jwl-zip-pouch-041",
+  "mainCount": 12,
+
+  "category": "fashion",
+  "tags": ["everyday", "travel-organizers", "tech-carry", "pouch", "zip-pouch", "minimalist"],
+
+  "name": {
+    "en": "Compact Zip Pouch Organizer (Multi-Color)",
+    "zh": "多用途拉链收纳包（多颜色）"
+  },
+
+  "description": {
+    "en": "A compact zip pouch designed for everyday organization—ideal for cables, cosmetics, stationery, and small travel essentials. Features a clean rectangular shape, smooth zipper access, and a structured body for easy packing. OEM/ODM customization available for fabrics (including recycled options), size, internal dividers, logo patch, lining, zippers (YKK optional) & hardware, and packaging.",
+    "zh": "多用途拉链收纳包，适合整理数据线、化妆品、文具与旅行随身小物。长方形包型便于装入背包/行李箱，拉链开合顺滑，包身挺括更好收纳。支持 OEM/ODM 定制：面料（可选再生环保材料）、尺寸、内部分隔、Logo 工艺、内里、拉链（可选 YKK）与五金、包装等。"
+  },
+
+  "materials": {
+    "en": [
+      "Outer: Nylon / Polyester (customizable; recycled options available)",
+      "Lining: Polyester (customizable)",
+      "Zipper: Standard zipper or YKK optional",
+      "Puller: Custom zipper pull options",
+      "Logo: Woven label / rubber patch / embroidery (customizable)"
+    ],
+    "zh": [
+      "面料：尼龙/涤纶（可定制；可选再生环保材料）",
+      "内里：涤纶（可定制）",
+      "拉链：常规拉链或可选 YKK",
+      "拉链头：可做定制拉链头/拉片",
+      "Logo：织标/胶章/刺绣（可定制）"
+    ]
+  },
+
+  "specifications": {
+    "en": {
+      "Estimated Dimensions": "18–24cm (W) × 12–16cm (H) × 5–8cm (D) (customizable)",
+      "Estimated Capacity": "1–2.5L (customizable)",
+      "Closure": "Top zipper closure",
+      "Structure": "Single main compartment (optional internal pockets/dividers)",
+      "Use Case": "Travel organizer, tech pouch, cosmetics pouch, stationery pouch",
+      "Colorways": "Multiple SKU color options (see variants)",
+      "Customization": "Fabric, color, size, logo, lining, internal layout, zipper & puller, packaging"
+    },
+    "zh": {
+      "参考尺寸": "宽 18–24cm × 高 12–16cm × 深 5–8cm（可定制）",
+      "参考容量": "1–2.5L（可定制）",
+      "闭合方式": "顶部拉链闭合",
+      "结构": "单主仓（可选内袋/分隔）",
+      "适用场景": "旅行收纳/数码收纳/化妆包/文具包",
+      "颜色款式": "多 SKU 配色（见 variants）",
+      "可定制": "面料配色、尺寸、Logo、内里、内部结构、拉链与拉片、包装"
+    }
+  },
+
+  "variants": [
+    { "key": "black", "sku": "SKU-BLACK", "en": "Black", "zh": "黑色" },
+    { "key": "green", "sku": "SKU-GREEN", "en": "Green", "zh": "绿色" },
+    { "key": "light-gray", "sku": "SKU-LIGHT-GRAY", "en": "Light Gray", "zh": "浅灰色" },
+    { "key": "rust", "sku": "SKU-RUST", "en": "Rust", "zh": "砖红色" }
+  ],
+
+  "imageJob": {
+    "src": "/Users/kaikailiu/Documents/JWL/2025.12.25/41",
+    "dst": "./public/images/products",
+    "slug": "compact-zip-pouch-organizer",
+    "assetDir": "jwl-zip-pouch-041",
+
+    "sizes": [600, 1600],
+    "thumb": 300,
+    "webp_quality": 82,
+    "jpg_quality": 85,
+    "export_jpg_fallback": true,
+
+    "sku_dirname": "SKU",
+
+    "variants": {
+      "IMG_4752.jpg": { "key": "black", "en": "Black", "zh": "黑色" },
+      "IMG_4754.jpg": { "key": "green", "en": "Green", "zh": "绿色" },
+      "IMG_4756.jpg": { "key": "light-gray", "en": "Light Gray", "zh": "浅灰色" },
+      "IMG_4757.jpg": { "key": "rust", "en": "Rust", "zh": "砖红色" }
+    }
+  }
+}

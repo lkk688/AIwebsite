@@ -1,0 +1,80 @@
+{
+  "id": "jwl-organizer-019",
+  "slug": "portable-lunch-bento-bag",
+  "assetDir": "jwl-organizer-019",
+  "mainCount": 7,
+
+  "category": "travel",
+  "tags": ["travel-organizers", "everyday", "lunch", "water-resistant"],
+
+  "name": {
+    "en": "Portable Lunch / Bento Bag",
+    "zh": "便携午餐包/便当包"
+  },
+
+  "description": {
+    "en": "A compact lunch/bento bag with a structured shape and easy carry handle. Features a zip-around opening and an organized interior—ideal for lunch boxes, containers, and daily essentials. OEM/ODM customization available for fabric (including recycled options), size, logo, lining, pockets, zippers & hardware, and packaging.",
+    "zh": "便携午餐包/便当包，包型挺括，配手提便于携带。拉链全开结构，内部更易整理，适合放便当盒、餐盒与日常小物。支持 OEM/ODM 定制：面料（可选再生环保材料）、尺寸、Logo 工艺、内里、口袋结构、拉链五金与包装等。"
+  },
+
+  "materials": {
+    "en": [
+      "Outer: Polyester / Nylon / canvas-like fabric (customizable; recycled options available)",
+      "Lining: Polyester (customizable; wipe-clean option available)",
+      "Zipper: Standard zipper or YKK optional",
+      "Handle: Reinforced webbing handle (customizable)",
+      "Hardware: Metal/plastic pulls (customizable)",
+      "Logo: Woven label / rubber patch / embroidery (customizable)"
+    ],
+    "zh": [
+      "面料：涤纶/尼龙/类帆布面料（可定制；可选再生环保材料）",
+      "内里：涤纶（可定制；可选易清洁内里）",
+      "拉链：常规拉链或可选 YKK",
+      "提手：加固织带提手（可定制）",
+      "五金：拉链头等（可定制）",
+      "Logo：织标/胶章/刺绣（可定制）"
+    ]
+  },
+
+  "specifications": {
+    "en": {
+      "Estimated Dimensions": "24–30cm (L) × 14–18cm (W) × 14–18cm (H) (customizable)",
+      "Estimated Capacity": "5–10L (customizable)",
+      "Opening": "Zip-around wide opening for easy access",
+      "Interior": "Main compartment + mesh pocket (optional) + small organizer pocket (optional)",
+      "Use Case": "Lunch box, bento, meal prep container, daily carry",
+      "Customization": "Fabric, color, logo, lining, pocket layout, zipper & hardware, packaging"
+    },
+    "zh": {
+      "参考尺寸": "长 24–30cm × 宽 14–18cm × 高 14–18cm（可定制）",
+      "参考容量": "5–10L（可定制）",
+      "开合方式": "拉链全开，取放更方便",
+      "内部结构": "主仓 + 网袋（可选）+ 小收纳袋（可选）",
+      "适用场景": "午餐便当、餐盒、日常收纳",
+      "可定制": "面料配色、Logo、内里、口袋结构、拉链五金、包装"
+    }
+  },
+
+  "variants": [
+    { "key": "beige", "sku": "SKU-BEIGE", "en": "Beige", "zh": "米色" }
+  ],
+
+  "imageJob": {
+    "src": "/Users/kaikailiu/Documents/JWL/2025.12.25/19",
+    "dst": "./public/images/products",
+    "slug": "portable-lunch-bento-bag",
+    "assetDir": "jwl-organizer-019",
+
+    "sizes": [600, 1600],
+    "thumb": 300,
+    "webp_quality": 82,
+    "jpg_quality": 85,
+    "export_jpg_fallback": true,
+
+    "sku_dirname": "SKU",
+
+    "variants": {
+      "IMG_4401.jpg": { "key": "beige", "en": "Beige", "zh": "米色" }
+    }
+  }
+}

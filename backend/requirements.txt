@@ -1,0 +1,11 @@
+openai>=1.40.0
+fastapi>=0.110
+uvicorn[standard]>=0.24
+python-dotenv>=1.0
+pydantic>=2.0
+pydantic-settings>=2.0
+litellm>=1.40.0
+boto3>=1.28
+slowapi>=0.1.9
+watchfiles>=0.21.0
+pydantic[email]>=2.0

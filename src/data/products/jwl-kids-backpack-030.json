@@ -1,0 +1,84 @@
+{
+  "id": "jwl-kids-backpack-030",
+  "slug": "kids-mini-backpack-rounded",
+  "assetDir": "jwl-kids-backpack-030",
+  "mainCount": 9,
+
+  "category": "kids",
+  "tags": ["kids", "school", "everyday", "backpacks", "cute", "lightweight"],
+
+  "name": {
+    "en": "Kids Mini Rounded Backpack (Multi-Color)",
+    "zh": "儿童圆弧迷你双肩包（多颜色）"
+  },
+
+  "description": {
+    "en": "A cute rounded mini backpack designed for kids with a lightweight structure and comfortable straps. Features a zip closure and roomy main compartment for small essentials—ideal for daycare, short trips, and everyday use. OEM/ODM customization available for fabric (including recycled options), colors, logo patch, lining, pockets, zippers & hardware, and packaging.",
+    "zh": "儿童圆弧迷你双肩包，包型可爱轻便，背负舒适。拉链开合，主仓可放置随身小物，适合托班/幼儿园、短途出行与日常使用。支持 OEM/ODM 定制：面料（可选再生环保材料）、配色、Logo 工艺、内里、口袋结构、拉链五金与包装等。"
+  },
+
+  "materials": {
+    "en": [
+      "Outer: Polyester / Nylon (customizable; recycled options available)",
+      "Lining: Polyester (customizable)",
+      "Zipper: Standard zipper or YKK optional",
+      "Straps: Adjustable padded straps (customizable)",
+      "Back Panel: Light padding (customizable)",
+      "Logo: Woven label / rubber patch / embroidery (customizable)"
+    ],
+    "zh": [
+      "面料：涤纶/尼龙（可定制；可选再生环保材料）",
+      "内里：涤纶（可定制）",
+      "拉链：常规拉链或可选 YKK",
+      "肩带：可调节肩带（可加软垫，定制）",
+      "背部：轻量衬垫（可定制）",
+      "Logo：织标/胶章/刺绣（可定制）"
+    ]
+  },
+
+  "specifications": {
+    "en": {
+      "Estimated Dimensions": "20–26cm (H) × 18–22cm (W) × 8–12cm (D) (customizable)",
+      "Estimated Capacity": "6–10L (customizable)",
+      "Closure": "Zipper closure",
+      "Organization": "Main compartment + inner pocket (optional)",
+      "Carry Options": "Backpack straps + top handle",
+      "Use Case": "Daycare, kids day trips, everyday essentials",
+      "Customization": "Colors, fabric, logo, lining, pockets, zipper & hardware, packaging"
+    },
+    "zh": {
+      "参考尺寸": "高 20–26cm × 宽 18–22cm × 深 8–12cm（可定制）",
+      "参考容量": "6–10L（可定制）",
+      "闭合方式": "拉链闭合",
+      "收纳结构": "主仓 + 内袋（可选）",
+      "背负方式": "双肩背负 + 顶部提手",
+      "适用场景": "托班/幼儿园、儿童出游、日常随身",
+      "可定制": "配色面料、Logo、内里、口袋结构、拉链五金、包装"
+    }
+  },
+
+  "variants": [
+    { "key": "cream", "sku": "SKU-CREAM", "en": "Cream", "zh": "奶油白" },
+    { "key": "tan", "sku": "SKU-TAN", "en": "Tan", "zh": "卡其色" }
+  ],
+
+  "imageJob": {
+    "src": "/Users/kaikailiu/Documents/JWL/2025.12.25/30",
+    "dst": "./public/images/products",
+    "slug": "kids-mini-backpack-rounded",
+    "assetDir": "jwl-kids-backpack-030",
+
+    "sizes": [600, 1600],
+    "thumb": 300,
+    "webp_quality": 82,
+    "jpg_quality": 85,
+    "export_jpg_fallback": true,
+
+    "sku_dirname": "SKU",
+
+    "variants": {
+      "IMG_4587.jpg": { "key": "cream", "en": "Cream", "zh": "奶油白" },
+      "IMG_4574.jpg": { "key": "tan", "en": "Tan", "zh": "卡其色" }
+    }
+  }
+}

@@ -1,0 +1,84 @@
+{
+  "id": "jwl-tote-025",
+  "slug": "kids-flap-mini-tote-backpack",
+  "assetDir": "jwl-tote-025",
+  "mainCount": 15,
+
+  "category": "kids",
+  "tags": ["kids", "everyday", "tote", "backpacks", "pattern", "school"],
+
+  "name": {
+    "en": "Kids Flap Mini Tote Backpack (Multi-Print)",
+    "zh": "儿童翻盖迷你托特双肩包（多花型）"
+  },
+
+  "description": {
+    "en": "A cute mini tote-style backpack for kids featuring a flap closure and playful patterns. Includes a roomy main compartment, comfortable straps, and an easy-grab top handle—great for school and day trips. OEM/ODM customization available for prints, fabrics (including recycled options), colorways, logo patch, lining, pockets, closure hardware, and packaging.",
+    "zh": "儿童翻盖迷你托特双肩包，造型可爱，花型活泼。翻盖闭合，主仓空间充足，带顶部提手与双肩背带，适合上学与出游。支持 OEM/ODM 定制：花型印花、面料（可选再生环保材料）、配色、Logo 工艺、内里、口袋结构、扣件五金与包装等。"
+  },
+
+  "materials": {
+    "en": [
+      "Outer: Polyester / Nylon / canvas-like fabric (customizable; recycled options available)",
+      "Print: Digital print / yarn-dyed stripe (customizable)",
+      "Lining: Polyester (customizable)",
+      "Closure: Snap/button or magnetic closure (customizable)",
+      "Straps: Adjustable backpack straps + top carry handle (customizable)",
+      "Logo: Woven label / rubber patch / embroidery (customizable)"
+    ],
+    "zh": [
+      "面料：涤纶/尼龙/类帆布面料（可定制；可选再生环保材料）",
+      "花型：数码印花/条纹面料（可定制）",
+      "内里：涤纶（可定制）",
+      "闭合方式：按扣/磁吸扣（可定制）",
+      "背负：可调节肩带 + 顶部提手（可定制）",
+      "Logo：织标/胶章/刺绣（可定制）"
+    ]
+  },
+
+  "specifications": {
+    "en": {
+      "Estimated Dimensions": "22–28cm (W) × 24–30cm (H) × 10–14cm (D) (customizable)",
+      "Estimated Capacity": "8–14L (customizable)",
+      "Closure": "Flap closure with snap/button (customizable)",
+      "Organization": "Main compartment + inner pocket (optional) + small front/side pocket (optional)",
+      "Carry Options": "Backpack straps + top handle",
+      "Use Case": "Kids school, daycare, day trips",
+      "Customization": "Prints, fabric, color, logo, lining, pocket layout, closure hardware, packaging"
+    },
+    "zh": {
+      "参考尺寸": "宽 22–28cm × 高 24–30cm × 深 10–14cm（可定制）",
+      "参考容量": "8–14L（可定制）",
+      "闭合方式": "翻盖按扣/扣件（可定制）",
+      "收纳结构": "主仓 + 内袋（可选）+ 小前袋/侧袋（可选）",
+      "背负方式": "双肩背负 + 顶部提手",
+      "适用场景": "儿童上学、托班、出游",
+      "可定制": "花型印花、面料配色、Logo、内里、口袋结构、扣件五金、包装"
+    }
+  },
+
+  "variants": [
+    { "key": "pink-stripe", "sku": "SKU-PINK-STRIPE", "en": "Pink Stripe", "zh": "粉色条纹" },
+    { "key": "blue-check", "sku": "SKU-BLUE-CHECK", "en": "Blue Checkered", "zh": "蓝色格纹" }
+  ],
+
+  "imageJob": {
+    "src": "/Users/kaikailiu/Documents/JWL/2025.12.25/25",
+    "dst": "./public/images/products",
+    "slug": "kids-flap-mini-tote-backpack",
+    "assetDir": "jwl-tote-025",
+
+    "sizes": [600, 1600],
+    "thumb": 300,
+    "webp_quality": 82,
+    "jpg_quality": 85,
+    "export_jpg_fallback": true,
+
+    "sku_dirname": "SKU",
+
+    "variants": {
+      "IMG_4498.jpg": { "key": "pink-stripe", "en": "Pink Stripe", "zh": "粉色条纹" },
+      "IMG_4501.jpg": { "key": "blue-check", "en": "Blue Checkered", "zh": "蓝色格纹" }
+    }
+  }
+}

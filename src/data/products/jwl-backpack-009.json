@@ -1,0 +1,80 @@
+{
+  "id": "jwl-backpack-009",
+  "slug": "everyday-utility-backpack",
+  "assetDir": "jwl-backpack-009",
+  "mainCount": 10,
+
+  "category": "backpacks",
+  "tags": ["everyday", "techCarry", "work"],
+
+  "name": {
+    "en": "Everyday Utility Backpack (Multi-Color)",
+    "zh": "日常多功能双肩包（多颜色）"
+  },
+
+  "description": {
+    "en": "A practical everyday backpack designed for commuting and travel. Features multiple zip compartments, a roomy main compartment, and an organized interior for tech and daily essentials. OEM/ODM customization available for fabrics (including recycled options), colorways, logo patch, lining, pocket layout, zippers & hardware, and packaging.",
+    "zh": "适合通勤与出行的日常多功能双肩包。多拉链隔层，主仓容量充足，内部收纳适合电子设备与随身物品。支持 OEM/ODM 定制：面料（可选再生环保材料）、配色、Logo 工艺、内里、口袋结构、拉链五金与包装等。"
+  },
+
+  "materials": {
+    "en": [
+      "Outer: Polyester / Nylon (customizable; recycled options available)",
+      "Lining: 210D Polyester (customizable)",
+      "Zipper: Standard zipper or YKK optional",
+      "Hardware: Metal/plastic buckles (customizable)",
+      "Padding: Foam/EVA padding for straps & back panel (customizable)",
+      "Logo: Woven label / rubber patch / embroidery (customizable)"
+    ],
+    "zh": [
+      "面料：涤纶/尼龙（可定制；可选再生环保材料）",
+      "内里：210D 涤纶（可定制）",
+      "拉链：常规拉链或可选 YKK",
+      "五金：金属/塑料扣具（可定制）",
+      "背负：肩带/背部可加海绵/EVA 衬垫（可定制）",
+      "Logo：织标/胶章/刺绣（可定制）"
+    ]
+  },
+
+  "specifications": {
+    "en": {
+      "Estimated Dimensions": "42–48cm (H) × 28–32cm (W) × 14–20cm (D) (customizable)",
+      "Estimated Capacity": "22–30L (customizable)",
+      "Compartments": "Multiple zip pockets + 1 main compartment + internal organizer/sleeve (optional) + side bottle pocket",
+      "Use Case": "Commuting, school, travel, daily carry",
+      "Customization": "Colors, fabric, logo, lining, pocket layout, zipper & hardware, packaging"
+    },
+    "zh": {
+      "参考尺寸": "高 42–48cm × 宽 28–32cm × 深 14–20cm（可定制）",
+      "参考容量": "22–30L（可定制）",
+      "收纳结构": "多拉链口袋 + 1 主仓 + 内部整理/夹层（可选）+ 侧边水杯袋",
+      "适用场景": "通勤、上学、旅行、日常",
+      "可定制": "配色、面料、Logo、内里、口袋结构、拉链五金、包装"
+    }
+  },
+
+  "variants": [
+    { "key": "black", "sku": "SKU-BLACK", "en": "Black", "zh": "黑色" },
+    { "key": "grey", "sku": "SKU-GREY", "en": "Grey", "zh": "灰色" }
+  ],
+
+  "imageJob": {
+    "src": "/Users/kaikailiu/Documents/JWL/2025.12.25/9",
+    "dst": "./public/images/products",
+    "slug": "everyday-utility-backpack",
+    "assetDir": "jwl-backpack-009",
+
+    "sizes": [600, 1600],
+    "thumb": 300,
+    "webp_quality": 82,
+    "jpg_quality": 85,
+    "export_jpg_fallback": true,
+
+    "sku_dirname": "SKU",
+
+    "variants": {
+      "IMG_4186.jpg": { "key": "black", "en": "Black", "zh": "黑色" },
+      "IMG_4187.jpg": { "key": "grey", "en": "Grey", "zh": "灰色" }
+    }
+  }
+}

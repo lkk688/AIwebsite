@@ -1,0 +1,90 @@
+{
+  "id": "jwl-bucket-crossbody-040",
+  "slug": "mini-bucket-crossbody-drawstring-bag",
+  "assetDir": "jwl-bucket-crossbody-040",
+  "mainCount": 10,
+
+  "category": "fashion",
+  "tags": ["everyday", "crossbody", "travel-organizers", "minimalist", "bucket-bag", "water-resistant", "techCarry"],
+
+  "name": {
+    "en": "Mini Bucket Crossbody Bag (Multi-Color)",
+    "zh": "迷你水桶斜挎包（多颜色）"
+  },
+
+  "description": {
+    "en": "A compact mini bucket-style crossbody with a clean silhouette and easy-access opening, ideal for daily essentials and travel. Features a structured body, secure closure, and adjustable strap. OEM/ODM customization available for fabrics (including recycled options), size, pocket layout, logo patch, lining, closures, hardware, and packaging.",
+    "zh": "迷你水桶造型斜挎包，包型简洁，开口取放方便，适合日常随身与旅行使用。挺括包身 + 安全闭合 + 可调节肩带。支持 OEM/ODM 定制：面料（可选再生环保材料）、尺寸、口袋结构、Logo 工艺、内里、闭合方式、五金与包装等。"
+  },
+
+  "materials": {
+    "en": [
+      "Outer: Nylon / Polyester (customizable; recycled options available)",
+      "Lining: Polyester (customizable)",
+      "Closure: Drawstring / snap / zipper options (customizable)",
+      "Strap: Adjustable webbing strap (customizable)",
+      "Hardware: Buckle/adjuster + rings (customizable)",
+      "Logo: Woven label / rubber patch / embroidery (customizable)"
+    ],
+    "zh": [
+      "面料：尼龙/涤纶（可定制；可选再生环保材料）",
+      "内里：涤纶（可定制）",
+      "闭合方式：抽绳/按扣/拉链等可选（可定制）",
+      "肩带：可调节织带肩带（可定制）",
+      "五金：调节扣/挂环等（可定制）",
+      "Logo：织标/胶章/刺绣（可定制）"
+    ]
+  },
+
+  "specifications": {
+    "en": {
+      "Estimated Dimensions": "14–18cm (W) × 18–22cm (H) × 10–14cm (D) (customizable)",
+      "Estimated Capacity": "2–4L (customizable)",
+      "Closure": "Secure top closure (customizable)",
+      "Carry Style": "Crossbody / shoulder (adjustable strap)",
+      "Use Case": "Everyday mini bag, travel essentials, organizer",
+      "Colorways": "Multiple SKU color options (see variants)",
+      "Customization": "Fabric, color, size, logo, lining, pockets, closure & hardware, packaging"
+    },
+    "zh": {
+      "参考尺寸": "宽 14–18cm × 高 18–22cm × 深 10–14cm（可定制）",
+      "参考容量": "2–4L（可定制）",
+      "闭合方式": "顶部安全闭合（可定制）",
+      "背负方式": "斜挎/单肩（肩带可调）",
+      "适用场景": "日常随身/旅行小包/收纳整理",
+      "颜色款式": "多 SKU 配色（见 variants）",
+      "可定制": "面料配色、尺寸、Logo、内里、口袋结构、闭合方式与五金、包装"
+    }
+  },
+
+  "variants": [
+    { "key": "green", "sku": "SKU-GREEN", "en": "Green", "zh": "绿色" },
+    { "key": "black", "sku": "SKU-BLACK", "en": "Black", "zh": "黑色" },
+    { "key": "navy", "sku": "SKU-NAVY", "en": "Navy", "zh": "藏蓝" },
+    { "key": "khaki", "sku": "SKU-KHAKI", "en": "Khaki", "zh": "卡其色" },
+    { "key": "yellow", "sku": "SKU-YELLOW", "en": "Yellow", "zh": "黄色" }
+  ],
+
+  "imageJob": {
+    "src": "/Users/kaikailiu/Documents/JWL/2025.12.25/40",
+    "dst": "./public/images/products",
+    "slug": "mini-bucket-crossbody-drawstring-bag",
+    "assetDir": "jwl-bucket-crossbody-040",
+
+    "sizes": [600, 1600],
+    "thumb": 300,
+    "webp_quality": 82,
+    "jpg_quality": 85,
+    "export_jpg_fallback": true,
+
+    "sku_dirname": "SKU",
+
+    "variants": {
+      "IMG_4733.jpg": { "key": "green", "en": "Green", "zh": "绿色" },
+      "IMG_4735.jpg": { "key": "black", "en": "Black", "zh": "黑色" },
+      "IMG_4736.jpg": { "key": "navy", "en": "Navy", "zh": "藏蓝" },
+      "IMG_4737.jpg": { "key": "khaki", "en": "Khaki", "zh": "卡其色" },
+      "IMG_4741.jpg": { "key": "yellow", "en": "Yellow", "zh": "黄色" }
+    }
+  }
+}

@@ -1,0 +1,84 @@
+{
+  "id": "jwl-sling-038",
+  "slug": "minimalist-sling-waist-bag",
+  "assetDir": "jwl-sling-038",
+  "mainCount": 9,
+
+  "category": "fashion",
+  "tags": ["everyday", "sling-waist", "crossbody", "techCarry", "travel-organizers", "minimalist", "water-resistant"],
+
+  "name": {
+    "en": "Minimalist Sling Waist Bag (Multi-Color)",
+    "zh": "极简胸包/腰包（多颜色）"
+  },
+
+  "description": {
+    "en": "A clean minimalist sling waist bag for everyday carry. Features a metal-zip front pocket, roomy main compartment, and adjustable strap—ideal for phone, wallet, passport, and small essentials for commuting or travel. OEM/ODM customization available for fabrics (including recycled options), size, pocket layout, logo patch, lining, zippers (YKK optional) & hardware, and packaging.",
+    "zh": "极简风胸包/腰包，金属拉链前袋 + 主仓结构，配可调节肩带，适合收纳手机、钱包、护照与随身小物，通勤与旅行都方便。支持 OEM/ODM 定制：面料（可选再生环保材料）、尺寸、口袋结构、Logo 工艺、内里、拉链（可选 YKK）与五金、包装等。"
+  },
+
+  "materials": {
+    "en": [
+      "Outer: Nylon / Polyester (customizable; recycled options available)",
+      "Lining: Polyester (customizable)",
+      "Zipper: Metal zipper (standard) or YKK optional",
+      "Strap: Adjustable webbing strap (customizable)",
+      "Hardware: Buckle + hooks/D-rings (customizable)",
+      "Logo: Woven label / rubber patch / embroidery (customizable)"
+    ],
+    "zh": [
+      "面料：尼龙/涤纶（可定制；可选再生环保材料）",
+      "内里：涤纶（可定制）",
+      "拉链：金属拉链（常规或可选 YKK）",
+      "肩带：可调节织带肩带（可定制）",
+      "五金：插扣/挂钩/D 环等（可定制）",
+      "Logo：织标/胶章/刺绣（可定制）"
+    ]
+  },
+
+  "specifications": {
+    "en": {
+      "Estimated Dimensions": "28–34cm (W) × 14–18cm (H) × 6–10cm (D) (customizable)",
+      "Estimated Capacity": "2–4.5L (customizable)",
+      "Structure": "1 main compartment + 1 front zip pocket",
+      "Closure": "Zipper closure",
+      "Carry Style": "Sling / waist / crossbody (adjustable strap)",
+      "Colorways": "Multiple SKU color options (see variants)",
+      "Customization": "Fabric, color, size, logo, lining, pockets, zipper & hardware, packaging"
+    },
+    "zh": {
+      "参考尺寸": "宽 28–34cm × 高 14–18cm × 深 6–10cm（可定制）",
+      "参考容量": "2–4.5L（可定制）",
+      "结构": "1 主仓 + 1 前拉链袋",
+      "闭合方式": "拉链闭合",
+      "背负方式": "胸包/腰包/斜挎（肩带可调）",
+      "颜色款式": "多 SKU 配色（见 variants）",
+      "可定制": "面料配色、尺寸、Logo、内里、口袋结构、拉链五金、包装"
+    }
+  },
+
+  "variants": [
+    { "key": "dark-brown", "sku": "SKU-DARK-BROWN", "en": "Dark Brown", "zh": "深棕" },
+    { "key": "brown", "sku": "SKU-BROWN", "en": "Brown", "zh": "棕色" }
+  ],
+
+  "imageJob": {
+    "src": "/Users/kaikailiu/Documents/JWL/2025.12.25/38",
+    "dst": "./public/images/products",
+    "slug": "minimalist-sling-waist-bag",
+    "assetDir": "jwl-sling-038",
+
+    "sizes": [600, 1600],
+    "thumb": 300,
+    "webp_quality": 82,
+    "jpg_quality": 85,
+    "export_jpg_fallback": true,
+
+    "sku_dirname": "SKU",
+
+    "variants": {
+      "IMG_4706.jpg": { "key": "dark-brown", "en": "Dark Brown", "zh": "深棕" },
+      "IMG_4707.jpg": { "key": "brown", "en": "Brown", "zh": "棕色" }
+    }
+  }
+}

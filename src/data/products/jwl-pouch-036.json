@@ -1,0 +1,84 @@
+{
+  "id": "jwl-pouch-036",
+  "slug": "zip-top-utility-pouch",
+  "assetDir": "jwl-pouch-036",
+  "mainCount": 9,
+
+  "category": "fashion",
+  "tags": ["everyday", "travel-organizers", "techCarry", "pouch", "minimalist", "water-resistant"],
+
+  "name": {
+    "en": "Zip-Top Utility Pouch (Multi-Color)",
+    "zh": "拉链顶部多用途收纳袋（多颜色）"
+  },
+
+  "description": {
+    "en": "A compact zip-top utility pouch designed for everyday organization. Features a structured body, smooth top zipper, and a roomy interior for stationery, chargers, cosmetics, or travel essentials. OEM/ODM customization available for fabrics (including recycled options), size, logo patch, lining, inner pockets, zipper (YKK optional) & hardware, and packaging.",
+    "zh": "轻便实用的拉链顶部收纳袋，包型挺括，开合顺畅，内部空间适合收纳文具、充电线材、化妆品或旅行随身小物。支持 OEM/ODM 定制：面料（可选再生环保材料）、尺寸、Logo 工艺、内里、内袋结构、拉链（可选 YKK）与五金、包装等。"
+  },
+
+  "materials": {
+    "en": [
+      "Outer: Nylon / Polyester (customizable; recycled options available)",
+      "Lining: Polyester (customizable)",
+      "Zipper: Top zipper, standard or YKK optional",
+      "Hardware: Puller & small fittings (customizable)",
+      "Logo: Woven label / rubber patch / embroidery (customizable)"
+    ],
+    "zh": [
+      "面料：尼龙/涤纶（可定制；可选再生环保材料）",
+      "内里：涤纶（可定制）",
+      "拉链：顶部拉链（常规或可选 YKK）",
+      "五金：拉链头/小配件（可定制）",
+      "Logo：织标/胶章/刺绣（可定制）"
+    ]
+  },
+
+  "specifications": {
+    "en": {
+      "Estimated Dimensions": "20–28cm (W) × 12–18cm (H) × 6–10cm (D) (customizable)",
+      "Estimated Capacity": "2–5L (customizable)",
+      "Closure": "Top zipper closure",
+      "Organization": "Main compartment + inner pocket (optional)",
+      "Use Case": "Tech pouch, cosmetics pouch, travel organizer, stationery bag",
+      "Colorways": "Multiple SKU color options (see variants)",
+      "Customization": "Fabric, color, size, logo, lining, pockets, zipper & hardware, packaging"
+    },
+    "zh": {
+      "参考尺寸": "宽 20–28cm × 高 12–18cm × 深 6–10cm（可定制）",
+      "参考容量": "2–5L（可定制）",
+      "闭合方式": "顶部拉链闭合",
+      "收纳结构": "主仓 + 内袋（可选）",
+      "适用场景": "数码收纳/化妆包/旅行收纳/文具袋",
+      "颜色款式": "多 SKU 配色（见 variants）",
+      "可定制": "面料配色、尺寸、Logo、内里、口袋结构、拉链五金、包装"
+    }
+  },
+
+  "variants": [
+    { "key": "cream", "sku": "SKU-CREAM", "en": "Cream", "zh": "米白" },
+    { "key": "black", "sku": "SKU-BLACK", "en": "Black", "zh": "黑色" },
+    { "key": "olive", "sku": "SKU-OLIVE", "en": "Olive", "zh": "橄榄绿" }
+  ],
+
+  "imageJob": {
+    "src": "/Users/kaikailiu/Documents/JWL/2025.12.25/36",
+    "dst": "./public/images/products",
+    "slug": "zip-top-utility-pouch",
+    "assetDir": "jwl-pouch-036",
+
+    "sizes": [600, 1600],
+    "thumb": 300,
+    "webp_quality": 82,
+    "jpg_quality": 85,
+    "export_jpg_fallback": true,
+
+    "sku_dirname": "SKU",
+
+    "variants": {
+      "IMG_4677.jpg": { "key": "cream", "en": "Cream", "zh": "米白" },
+      "IMG_4678.jpg": { "key": "black", "en": "Black", "zh": "黑色" },
+      "IMG_4679.jpg": { "key": "olive", "en": "Olive", "zh": "橄榄绿" }
+    }
+  }
+}

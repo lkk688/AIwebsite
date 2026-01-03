@@ -1,0 +1,76 @@
+{
+  "id": "jwl-kids-backpack-003",
+  "slug": "kids-school-backpack",
+  "assetDir": "jwl-kids-backpack-003",
+  "mainCount": 9,
+
+  "category": "backpacks",
+  "tags": ["kids", "school", "everyday", "techCarry"],
+
+  "name": {
+    "en": "Kids School Backpack (Light Blue / Multi-Color)",
+    "zh": "儿童学生双肩书包（浅蓝色，多颜色）"
+  },
+
+  "description": {
+    "en": "A compact school backpack designed for kids and everyday carry. Includes a roomy main compartment for books, a front zip pocket for quick access, and padded shoulder straps for comfort. OEM/ODM customization available for fabrics (including recycled options), colorways, logo patch, lining, pocket layout, and packaging.",
+    "zh": "面向儿童/学生日常使用的轻便双肩书包。主仓可放书本与文具，前置拉链袋便于快取，肩带与背部可做加厚更舒适。支持 OEM/ODM 定制：面料（可选再生环保材料）、配色、Logo 工艺、内里、口袋结构与包装等。"
+  },
+
+  "materials": {
+    "en": [
+      "Outer: Polyester / Nylon (customizable; recycled options available)",
+      "Lining: 210D Polyester (customizable)",
+      "Zipper: Standard zipper or YKK optional",
+      "Padding: Foam/EVA padding for straps & back panel (customizable)",
+      "Logo: Woven label / rubber patch / embroidery (customizable)"
+    ],
+    "zh": [
+      "面料：涤纶/尼龙（可定制；可选再生环保材料）",
+      "内里：210D 涤纶（可定制）",
+      "拉链：常规拉链或可选 YKK",
+      "背负：肩带/背部可加海绵/EVA 衬垫（可定制）",
+      "Logo：织标/胶章/刺绣（可定制）"
+    ]
+  },
+
+  "specifications": {
+    "en": {
+      "Estimated Dimensions": "38–42cm (H) × 28–30cm (W) × 12–16cm (D) (customizable)",
+      "Estimated Capacity": "18–22L (customizable)",
+      "Compartments": "1 main compartment + internal sleeve (optional) + front zip pocket + side bottle pocket",
+      "Comfort": "Padded shoulder straps & back panel (customizable)",
+      "Customization": "Colors, fabric, logo, lining, pocket layout, zipper & hardware, packaging"
+    },
+    "zh": {
+      "参考尺寸": "高 38–42cm × 宽 28–30cm × 深 12–16cm（可定制）",
+      "参考容量": "18–22L（可定制）",
+      "收纳结构": "1 主仓 + 内部夹层（可选）+ 前拉链袋 + 侧边水杯袋",
+      "舒适背负": "肩带/背部可加厚衬垫（可定制）",
+      "可定制": "配色、面料、Logo、内里、口袋结构、拉链五金、包装"
+    }
+  },
+
+  "variants": [
+    { "key": "black", "sku": "SKU-BLACK", "en": "Black", "zh": "黑色" }
+  ],
+
+  "imageJob": {
+    "src": "/Users/kaikailiu/Documents/JWL/2025.12.25/3",
+    "dst": "./public/images/products",
+    "slug": "kids-school-backpack",
+    "assetDir": "jwl-kids-backpack-003",
+
+    "sizes": [600, 1600],
+    "thumb": 300,
+    "webp_quality": 82,
+    "jpg_quality": 85,
+    "export_jpg_fallback": true,
+
+    "sku_dirname": "SKU",
+
+    "variants": {
+      "IMG_4039.jpg": { "key": "black", "en": "Black", "zh": "黑色" }
+    }
+  }
+}

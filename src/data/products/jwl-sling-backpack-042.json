@@ -1,0 +1,88 @@
+{
+  "id": "jwl-sling-backpack-042",
+  "slug": "compact-sling-backpack-one-strap",
+  "assetDir": "jwl-sling-backpack-042",
+  "mainCount": 15,
+
+  "category": "fashion",
+  "tags": ["everyday", "sling-waist", "crossbody", "travel-organizers", "tech-carry", "minimalist"],
+
+  "name": {
+    "en": "Compact One-Strap Sling Backpack (Multi-Color)",
+    "zh": "轻便单肩斜挎胸包/单肩背包（多颜色）"
+  },
+
+  "description": {
+    "en": "A compact one-strap sling backpack designed for hands-free everyday carry. Features a secure main compartment, quick-access front pocket, and adjustable shoulder strap for left/right carry. Great for travel, commuting, and daily essentials. OEM/ODM customization available for fabrics (including recycled options), size, pocket layout, logo patch, lining, zippers (YKK optional) & hardware, and packaging.",
+    "zh": "轻便单肩斜挎胸包/单肩背包，解放双手，适合通勤与旅行随身。主仓安全收纳，前袋便捷快取，肩带可调并可左右肩切换背负。支持 OEM/ODM 定制：面料（可选再生环保材料）、尺寸、口袋结构、Logo 工艺、内里、拉链（可选 YKK）与五金、包装等。"
+  },
+
+  "materials": {
+    "en": [
+      "Outer: Nylon / Polyester (customizable; recycled options available)",
+      "Lining: Polyester (customizable)",
+      "Zipper: Standard zipper or YKK optional",
+      "Strap: Adjustable webbing strap (customizable)",
+      "Hardware: Buckle/adjuster + swivel hook/D-ring (customizable)",
+      "Logo: Woven label / rubber patch / embroidery (customizable)"
+    ],
+    "zh": [
+      "面料：尼龙/涤纶（可定制；可选再生环保材料）",
+      "内里：涤纶（可定制）",
+      "拉链：常规拉链或可选 YKK",
+      "肩带：可调节织带肩带（可定制）",
+      "五金：调节扣/旋转挂钩/D 环等（可定制）",
+      "Logo：织标/胶章/刺绣（可定制）"
+    ]
+  },
+
+  "specifications": {
+    "en": {
+      "Estimated Dimensions": "18–24cm (W) × 30–40cm (H) × 8–12cm (D) (customizable)",
+      "Estimated Capacity": "6–10L (customizable)",
+      "Closure": "Zipper closure",
+      "Structure": "1 main compartment + front quick-access pocket",
+      "Carry Style": "One-strap sling; left/right carry options",
+      "Use Case": "Daily sling backpack, travel day bag, light commute",
+      "Colorways": "Multiple SKU color options (see variants)",
+      "Customization": "Fabric, color, size, logo, lining, pockets, zipper & hardware, packaging"
+    },
+    "zh": {
+      "参考尺寸": "宽 18–24cm × 高 30–40cm × 深 8–12cm（可定制）",
+      "参考容量": "6–10L（可定制）",
+      "闭合方式": "拉链闭合",
+      "结构": "1 主仓 + 前幅快取口袋",
+      "背负方式": "单肩斜挎；支持左右肩切换",
+      "适用场景": "日常胸包/旅行随身包/轻通勤",
+      "颜色款式": "多 SKU 配色（见 variants）",
+      "可定制": "面料配色、尺寸、Logo、内里、口袋结构、拉链五金、包装"
+    }
+  },
+
+  "variants": [
+    { "key": "black", "sku": "SKU-BLACK", "en": "Black", "zh": "黑色" },
+    { "key": "khaki", "sku": "SKU-KHAKI", "en": "Khaki", "zh": "卡其色" },
+    { "key": "cream", "sku": "SKU-CREAM", "en": "Cream", "zh": "米白色" }
+  ],
+
+  "imageJob": {
+    "src": "/Users/kaikailiu/Documents/JWL/2025.12.25/42",
+    "dst": "./public/images/products",
+    "slug": "compact-sling-backpack-one-strap",
+    "assetDir": "jwl-sling-backpack-042",
+
+    "sizes": [600, 1600],
+    "thumb": 300,
+    "webp_quality": 82,
+    "jpg_quality": 85,
+    "export_jpg_fallback": true,
+
+    "sku_dirname": "SKU",
+
+    "variants": {
+      "IMG_4768.jpg": { "key": "black", "en": "Black", "zh": "黑色" },
+      "IMG_4769.jpg": { "key": "khaki", "en": "Khaki", "zh": "卡其色" },
+      "IMG_4770.jpg": { "key": "cream", "en": "Cream", "zh": "米白色" }
+    }
+  }
+}

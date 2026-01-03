@@ -1,0 +1,80 @@
+{
+  "id": "jwl-handbag-007",
+  "slug": "minimalist-hobo-shoulder-bag",
+  "assetDir": "jwl-handbag-007",
+  "mainCount": 7,
+
+  "category": "fashion",
+  "tags": ["everyday", "fashion", "shoulder-bag", "minimalist", "eco-recycled-leather"],
+
+  "name": {
+    "en": "Minimalist Hobo Shoulder Bag (Recycled Leather, Multi-Color)",
+    "zh": "极简腋下包/半月包（再生牛皮，多颜色）"
+  },
+
+  "description": {
+    "en": "A minimalist hobo-style shoulder bag with a clean silhouette and soft structure. Features a smooth top zipper opening and a roomy interior for daily essentials. OEM/ODM customization available for materials (including recycled leather), colorways, lining, zipper & hardware, logo, and packaging.",
+    "zh": "极简风腋下包/半月包，线条干净、软挺适中。顶部拉链开合，内部空间可放置日常随身物品。支持 OEM/ODM 定制：材质（可选再生牛皮）、配色、内里、拉链五金、Logo 与包装等。"
+  },
+
+  "materials": {
+    "en": [
+      "Outer: Recycled leather / PU / genuine leather (customizable)",
+      "Lining: Polyester or microfiber (customizable)",
+      "Zipper: Metal zipper (YKK optional)",
+      "Hardware: Metal alloy (customizable finish)",
+      "Logo: Debossed / woven label / metal plate (customizable)"
+    ],
+    "zh": [
+      "面料：再生牛皮 / PU / 真皮（可定制）",
+      "内里：涤纶或超纤（可定制）",
+      "拉链：金属拉链（可选 YKK）",
+      "五金：金属合金（电镀颜色可定制）",
+      "Logo：压印 / 织标 / 金属牌（可定制）"
+    ]
+  },
+
+  "specifications": {
+    "en": {
+      "Estimated Dimensions": "28–34cm (W) × 18–24cm (H) × 6–10cm (D) (customizable)",
+      "Strap Drop": "18–25cm (customizable)",
+      "Closure": "Top zipper closure",
+      "Structure": "1 main compartment + inner pocket (optional)",
+      "Customization": "Material, color, lining, logo, zipper & hardware, packaging"
+    },
+    "zh": {
+      "参考尺寸": "宽 28–34cm × 高 18–24cm × 深 6–10cm（可定制）",
+      "肩带垂长": "18–25cm（可定制）",
+      "闭合方式": "顶部拉链",
+      "结构": "1 主仓 + 内袋（可选）",
+      "可定制": "材质配色、内里、Logo、拉链五金、包装"
+    }
+  },
+
+  "variants": [
+    { "key": "dark-brown", "sku": "SKU-DARK-BROWN", "en": "Dark Brown", "zh": "深棕色" },
+    { "key": "coffee-brown", "sku": "SKU-COFFEE-BROWN", "en": "Coffee Brown", "zh": "咖啡棕" },
+    { "key": "brown-set", "sku": "SKU-BROWN-SET", "en": "Brown Set (Bag + Pouch)", "zh": "棕色套装（包+小包）" }
+  ],
+
+  "imageJob": {
+    "src": "/Users/kaikailiu/Documents/JWL/2025.12.25/7",
+    "dst": "./public/images/products",
+    "slug": "minimalist-hobo-shoulder-bag",
+    "assetDir": "jwl-handbag-007",
+
+    "sizes": [600, 1600],
+    "thumb": 300,
+    "webp_quality": 82,
+    "jpg_quality": 85,
+    "export_jpg_fallback": true,
+
+    "sku_dirname": "SKU",
+
+    "variants": {
+      "IMG_4155.jpg": { "key": "brown-set", "en": "Brown Set (Bag + Pouch)", "zh": "棕色套装（包+小包）" },
+      "IMG_4156.jpg": { "key": "coffee-brown", "en": "Coffee Brown", "zh": "咖啡棕" },
+      "IMG_4157.jpg": { "key": "dark-brown", "en": "Dark Brown", "zh": "深棕色" }
+    }
+  }
+}

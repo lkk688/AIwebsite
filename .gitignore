@@ -46,3 +46,6 @@ backend/__pycache__/
 backend/.env
 *.pem
 *.db
+
+src/data
+public/images

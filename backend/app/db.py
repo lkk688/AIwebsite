@@ -3,6 +3,11 @@ from datetime import datetime, timezone
 from typing import Optional, Dict, Any
 import json
 import os
+import hashlib
+from typing import List, Optional
+
+def sha256_text(s: str) -> str:
+    return hashlib.sha256(s.encode("utf-8")).hexdigest()
 
 DB_FILE = os.environ.get("INQUIRIES_DB_FILE", "inquiries.db")
 
@@ -33,6 +38,23 @@ def init_db():
         );
         """
     )
+    # ✅ 新增：缓存产品 embeddings
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS product_embeddings (
+            product_id TEXT NOT NULL,
+            model TEXT NOT NULL,
+            doc_hash TEXT NOT NULL,
+            embedding_json TEXT NOT NULL,
+            updated_at_utc TEXT NOT NULL,
+            PRIMARY KEY (product_id, model)
+        );
+        """
+    )
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_product_embeddings_model_hash ON product_embeddings(model, doc_hash);"
+    )
+
     conn.commit()
     conn.close()
 
@@ -78,6 +100,40 @@ def mark_inquiry_failed(inquiry_id: int, error: str):
     conn.execute(
         "UPDATE inquiries SET status='failed', error=? WHERE id=?",
         (error, inquiry_id),
+    )
+    conn.commit()
+    conn.close()
+
+def get_cached_product_embedding(product_id: str, model: str, doc_hash: str) -> Optional[List[float]]:
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute(
+        "SELECT embedding_json FROM product_embeddings WHERE product_id=? AND model=? AND doc_hash=?",
+        (product_id, model, doc_hash),
+    )
+    row = cur.fetchone()
+    conn.close()
+    if not row:
+        return None
+    try:
+        return json.loads(row[0])
+    except Exception:
+        return None
+
+def upsert_product_embedding(product_id: str, model: str, doc_hash: str, embedding: List[float]) -> None:
+    conn = get_conn()
+    ts = datetime.now(timezone.utc).isoformat()
+    emb_json = json.dumps(embedding)
+    conn.execute(
+        """
+        INSERT INTO product_embeddings(product_id, model, doc_hash, embedding_json, updated_at_utc)
+        VALUES(?, ?, ?, ?, ?)
+        ON CONFLICT(product_id, model) DO UPDATE SET
+          doc_hash=excluded.doc_hash,
+          embedding_json=excluded.embedding_json,
+          updated_at_utc=excluded.updated_at_utc
+        """,
+        (product_id, model, doc_hash, emb_json, ts),
     )
     conn.commit()
     conn.close()

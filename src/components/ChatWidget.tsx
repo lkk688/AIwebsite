@@ -8,6 +8,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
+import { config } from '@/config';
+
 // Add custom styles for markdown content if Tailwind typography isn't working perfectly
 const markdownStyles = `
 .markdown-content ul { list-style-type: disc; padding-left: 1.5em; margin-bottom: 0.5em; }
@@ -62,7 +64,8 @@ export default function ChatWidget() {
     try {
       // Add a placeholder message for the bot's response
       setChatHistory(prev => [...prev, { role: 'bot', text: '' }]);
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL || ''}/api/chat/stream`, {
+      
+      const response = await fetch(`${config.apiBaseUrl}${config.endpoints.chatStream}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -127,15 +130,12 @@ export default function ChatWidget() {
 
     } catch (error) {
       console.error('Chat Error:', error);
-      setChatHistory(prev => {
-        // Remove the empty bot message if it failed immediately or update it
-        const newHistory = [...prev];
-        if (newHistory.length > 0 && newHistory[newHistory.length - 1].role === 'bot' && newHistory[newHistory.length - 1].text === '') {
-             newHistory[newHistory.length - 1].text = 'Sorry, I am having trouble connecting to the server. Please try again later.';
-             return newHistory;
-        }
-        return [...prev, { role: 'bot', text: 'Sorry, I am having trouble connecting to the server. Please try again later.' }];
-      });
+      // Remove the empty bot message if it exists
+      setChatHistory(prev => prev.filter(msg => msg.text !== ''));
+      setChatHistory(prev => [...prev, { 
+        role: 'bot', 
+        text: `Sorry, I am having trouble connecting to the server. Error: ${error instanceof Error ? error.message : String(error)}` 
+      }]);
     } finally {
       setIsLoading(false);
     }

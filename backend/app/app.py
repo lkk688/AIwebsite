@@ -11,13 +11,58 @@ from .product_search import build_product_context, search_products
 from .email_ses import SesMailer
 from .llm_client import LLMClient
 from .db import init_db, insert_inquiry, mark_inquiry_sent, mark_inquiry_failed
+from .embeddings_client import EmbeddingsClient
+from .product_rag import ProductRAG
+import logging
+from typing import Any, Dict, List
+import os
+
+def setup_logging():
+    level = os.getenv("LOG_LEVEL", "INFO").upper()
+    logging.basicConfig(
+        level=level,
+        format="%(asctime)s %(levelname)s %(name)s - %(message)s",
+    )
+
+setup_logging()
+logger = logging.getLogger("jwl.api")
+
+def _get_locale_text(obj: Dict[str, Any], key: str, locale: str) -> str:
+    """
+    支持字段形态：
+    - {"en": "...", "zh": "..."} -> 返回 locale，否则 fallback en
+    - ["a", "b"] -> join
+    - {"en": [..], "zh":[..]} -> join
+    - {"en": {..}, "zh":{..}} -> json stringify
+    - 其它 -> str
+    """
+    v = obj.get(key, None)
+    if v is None:
+        return ""
+
+    if isinstance(v, dict):
+        vv = v.get(locale) or v.get("en")
+        if vv is None:
+            return ""
+        if isinstance(vv, list):
+            return "\n".join([str(x) for x in vv if x is not None])
+        if isinstance(vv, dict):
+            return json.dumps(vv, ensure_ascii=False)
+        return str(vv)
+
+    if isinstance(v, list):
+        return "\n".join([str(x) for x in v if x is not None])
+
+    return str(v)
 
 app = FastAPI()
 init_db()
 
+# Configure CORS (Cross-Origin Resource Sharing)
+# https://fastapi.tiangolo.com/tutorial/cors/
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # 生产环境请改成你的域名
+    allow_origins=["*"],  # Change to your specific domain in production for security
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -26,6 +71,9 @@ app.add_middleware(
 store = DataStore(settings.data_dir)
 llm = LLMClient()
 
+# Initialize SES Mailer
+# Uses boto3 to send emails via AWS SES
+# https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ses.html
 mailer = SesMailer(
     region=settings.aws_region,
     access_key_id=settings.aws_access_key_id,
@@ -35,10 +83,18 @@ mailer = SesMailer(
     configuration_set=settings.ses_configuration_set,
 )
 
-def send_inquiry_with_db(name: str, email: str, message: str, source: str, locale: str):
+embedder = EmbeddingsClient()
+product_rag = ProductRAG(store.products, embedder)
+product_rag.build_index()  # 产品少，启动时建一次即可
+
+def send_inquiry_with_db_email(name: str, email: str, message: str, source: str, locale: str):
     """
-    先写入 SQLite（pending），再调用 SES。
-    返回统一结构，供 /api/send-email 和 chat tool 共用。
+    Process an inquiry:
+    1. Write to SQLite database first (persistence).
+    2. Attempt to send an email via AWS SES.
+    3. Update the database with the send status (success/failure).
+    
+    Returns a unified structure suitable for the /api/send-email endpoint and the chat tool.
     """
     inquiry_id = insert_inquiry(
         name=name,
@@ -46,11 +102,12 @@ def send_inquiry_with_db(name: str, email: str, message: str, source: str, local
         message=message,
         source=source,
         locale=locale,
-        meta={"ua": "api"}  # 你也可以加 request headers / ip 等
+        meta={"ua": "api"}  # You can also add request headers / IP, etc.
     )
 
     try:
-        ses_resp = mailer.send_inquiry(name, email, message)  # {"messageId": "..."}
+        # Send email via SES
+        ses_resp = mailer.send_inquiry(name, email, message)  # Returns {"messageId": "..."}
         ses_message_id = ses_resp.get("messageId") if isinstance(ses_resp, dict) else None
         mark_inquiry_sent(inquiry_id, ses_message_id or "")
         return {
@@ -69,18 +126,101 @@ def send_inquiry_with_db(name: str, email: str, message: str, source: str, local
             "error": err,
         }
 
+def send_inquiry_with_db(name: str, email: str, message: str, source: str, locale: str):
+    """
+    Process an inquiry (Database Only):
+    1. Write to SQLite database.
+    2. Does NOT send an email via SES (useful for testing or specific workflows).
+    
+    Returns a unified structure suitable for the /api/inquiry endpoint.
+    """
+    try:
+        inquiry_id = insert_inquiry(
+            name=name,
+            email=email,
+            message=message,
+            source=source,
+            locale=locale,
+            meta={"ua": "api"}  # You can also add request headers / IP, etc.
+        )
+
+        return {
+            "ok": True,
+            "inquiry_id": inquiry_id,
+            "ses": None,
+            "error": None,
+        }
+    except Exception as e:
+        return {
+            "ok": False,
+            "inquiry_id": None,
+            "ses": None,
+            "error": str(e),
+        }
+
+def build_rag_context(query: str, locale: str, k: int = 5) -> Dict[str, Any]:
+    r = product_rag.retrieve(query, locale=locale, k=k)
+    mode = r.get("mode")
+    products = r.get("products", []) or []
+
+    def name_of(p: Dict[str, Any]) -> str:
+        return _get_locale_text(p, "name", locale)
+
+    hits_summary = [{"id": p.get("id"), "slug": p.get("slug"), "name": name_of(p)} for p in products[: min(len(products), 5)]]
+
+    if not products:
+        return {"mode": "none", "products": [], "context": "", "hits_summary": []}
+
+    # exact：给 1 个全量；rag：给 top3~5 摘要
+    if mode == "exact":
+        p = products[0]
+        ctx = (
+            ("【匹配到指定产品】\n" if locale == "zh" else "[Exact Product Match]\n") +
+            "请基于以下产品信息回答，并在答案中引用 product id/slug。\n" if locale == "zh"
+            else "Answer using the product info below and cite product id/slug.\n"
+        )
+        ctx += (
+            f"- id: {p.get('id')}\n"
+            f"- slug: {p.get('slug')}\n"
+            f"- name: {name_of(p)}\n"
+            f"- category: {p.get('category')}\n"
+            f"- tags: {p.get('tags', [])}\n"
+            f"- description: {_get_locale_text(p, 'description', locale)}\n"
+            f"- materials: {_get_locale_text(p, 'materials', locale)}\n"
+            f"- specifications: {_get_locale_text(p, 'specifications', locale)}\n"
+            f"- variants: {p.get('variants', [])}\n"
+        )
+        return {"mode": mode, "products": [p], "context": ctx, "hits_summary": hits_summary}
+
+    # rag
+    take = min(5, len(products))
+    title = "【语义检索 TopK】" if locale == "zh" else "[Semantic TopK]"
+    ctx_lines = [title, ("请从以下候选产品中选择最相关的回答，并引用 id/slug。\n" if locale == "zh"
+                         else "Choose the most relevant product(s) below and cite id/slug.\n")]
+
+    for p in products[:take]:
+        ctx_lines.append(
+            f"- id={p.get('id')} slug={p.get('slug')} name={name_of(p)}\n"
+            f"  category={p.get('category')} tags={p.get('tags', [])}\n"
+            f"  desc={_get_locale_text(p, 'description', locale)[:260]}\n"
+        )
+
+    return {"mode": mode, "products": products[:take], "context": "\n".join(ctx_lines), "hits_summary": hits_summary}
+
 # ----------- Schemas -----------
+# Pydantic models for request/response validation
+# https://docs.pydantic.dev/latest/
 
 class ChatMessage(BaseModel):
-    role: str  # user|assistant|system 或你前端的 bot
+    role: str  # user|assistant|system or your frontend bot
     text: str
 
 
 class ChatRequest(BaseModel):
     messages: List[ChatMessage]
     locale: str = "en"
-    allow_actions: bool = False  # 前端确认后才置 true
-
+    allow_actions: bool = False  # Set to true only after frontend confirmation
+    debug: bool = False
 
 class ChatResponse(BaseModel):
     response: str
@@ -98,6 +238,10 @@ class EmailRequest(BaseModel):
 # ----------- Prompts -----------
 
 def build_system_prompt(locale: str) -> str:
+    """
+    Builds the system prompt for the LLM based on the user's locale.
+    Includes company info and rules for the AI assistant.
+    """
     info = store.website_info
     company = (info.get("companyName", {}) or {}).get(locale) or (info.get("companyName", {}) or {}).get("en") or "JWL Travel Gear"
 
@@ -124,6 +268,10 @@ Rules:
 
 
 def build_company_context(query: str, locale: str) -> str:
+    """
+    Retrieves relevant company information (About, Contact, Services, Certifications)
+    based on keywords in the user's query.
+    """
     q = query.lower()
     parts = []
 
@@ -143,36 +291,59 @@ def build_company_context(query: str, locale: str) -> str:
 
 
 def to_llm_messages(req: ChatRequest) -> List[Dict[str, Any]]:
-    # 1) system
+    """
+    Converts the chat request into the format required by the LLM.
+    Constructs the system prompt and injects context (product info, company info).
+    """
+    # 1) Build system prompt
     sys = build_system_prompt(req.locale)
 
-    # 2) dynamic product context (simple JSON scan)
+    # 2) Build dynamic product context (simple JSON scan based on last user message)
     last_user = ""
     for m in reversed(req.messages):
         if m.role in ("user",) or m.role not in ("assistant", "bot", "system"):
             last_user = m.text
             break
 
-    prod_ctx = build_product_context(store.products, last_user, req.locale, limit=3)
+    #prod_ctx = build_product_context(store.products, last_user, req.locale, limit=3)
+    #Use RAG
+    # 1) RAG 检索
+    rag_info = build_rag_context(query=last_user, locale=req.locale, k=5)
+    prod_ctx = rag_info["context"]  # 已经是 string
+
+    # 2) 公司信息（只在关键词触发时注入）
     comp_ctx = build_company_context(last_user, req.locale)
 
-    ctx = ""
-    if prod_ctx:
-        ctx += prod_ctx + "\n\n"
+    # 3) 拼接 system content（把产品放在最后，最靠近用户问题）
+    ctx_parts = []
     if comp_ctx:
-        ctx += ("公司信息:\n" if req.locale == "zh" else "Company info:\n") + comp_ctx + "\n\n"
+        ctx_parts.append(("公司信息:\n" if req.locale == "zh" else "Company info:\n") + comp_ctx)
+    if prod_ctx:
+        ctx_parts.append(prod_ctx)
 
-    system_content = sys + ("\n\n[Context]\n" + ctx if ctx else "")
+    system_content = sys
+    if ctx_parts:
+        system_content += "\n\n[Context]\n" + "\n\n".join(ctx_parts)
 
+    # 4) 生成 messages
     messages: List[Dict[str, Any]] = [{"role": "system", "content": system_content}]
-
     for m in req.messages:
-        role = m.role
-        if role == "bot":
-            role = "assistant"
+        role = "assistant" if m.role == "bot" else m.role
         if role not in ("system", "user", "assistant"):
             role = "user"
         messages.append({"role": role, "content": m.text})
+
+    # 5) 日志（调试 RAG 是否注入成功的关键）
+    try:
+        logger.info(
+            "chat_context locale=%s rag_mode=%s hit=%s ctx_len=%d",
+            req.locale,
+            rag_info.get("mode"),
+            rag_info.get("hits_summary"),
+            len(prod_ctx or ""),
+        )
+    except Exception:
+        pass
 
     return messages
 
@@ -181,12 +352,18 @@ def to_llm_messages(req: ChatRequest) -> List[Dict[str, Any]]:
 
 @app.get("/api/health")
 async def health():
+    """
+    Health check endpoint.
+    """
     return {"status": "ok", "products_loaded": len(store.products), "llm_backend": settings.llm_backend}
 
 
 @app.post("/api/send-email")
 async def send_email(req: EmailRequest):
-    result = send_inquiry_with_db(
+    """
+    Send an email via SES and record it in the database.
+    """
+    result = send_inquiry_with_db_email(
         name=req.name,
         email=str(req.email),
         message=req.message,
@@ -197,7 +374,31 @@ async def send_email(req: EmailRequest):
     if result["ok"]:
         return {"status": "success", "inquiry_id": result["inquiry_id"], "ses": result["ses"]}
     else:
-        # 这里不抛异常：返回失败原因，前端可提示用户“稍后再试/改用表单”
+        # Do not raise exception here: return failure reason, frontend can prompt user to "try again later/use form"
+        return {
+            "status": "failed",
+            "inquiry_id": result["inquiry_id"],
+            "error": result["error"],
+        }
+
+
+@app.post("/api/inquiry")
+async def submit_inquiry(req: EmailRequest):
+    """
+    Submit an inquiry. This endpoint stores the inquiry in the database ONLY.
+    It provides a dedicated endpoint for inquiry submission, distinct from the generic send-email.
+    """
+    result = send_inquiry_with_db(
+        name=req.name,
+        email=str(req.email),
+        message=req.message,
+        source="api/inquiry",
+        locale=req.locale,
+    )
+
+    if result["ok"]:
+        return {"status": "success", "inquiry_id": result["inquiry_id"], "ses": result["ses"]}
+    else:
         return {
             "status": "failed",
             "inquiry_id": result["inquiry_id"],
@@ -210,12 +411,19 @@ async def products_search(
     locale: str = Query("en"),
     limit: int = Query(8, ge=1, le=50),
 ):
+    """
+    Search for products by keyword.
+    """
     results = search_products(store.products, q, locale=locale, limit=limit)
     return {"query": q, "count": len(results), "results": results}
 
 
 @app.post("/api/chat", response_model=ChatResponse)
 async def chat(req: ChatRequest):
+    """
+    Standard Chat API (Non-streaming).
+    Processes user messages, interacts with LLM, and handles tool calls (like sending emails).
+    """
     messages = to_llm_messages(req)
     #tools = llm.tools()
     tools = llm.tools() if req.allow_actions else []
@@ -223,7 +431,7 @@ async def chat(req: ChatRequest):
     try:
         result = llm.complete(messages=messages, tools=tools, temperature=0.6)
 
-        # tool call guard（只有前端 allow_actions=True 才执行）
+        # Tool call guard (execute only if frontend allow_actions=True)
         if result.tool_call and result.tool_call.get("name") == "send_inquiry":
             if not req.allow_actions:
                 tip = "请确认是否要发送邮件，并提供姓名/邮箱/留言内容。" if req.locale == "zh" else \
@@ -240,7 +448,7 @@ async def chat(req: ChatRequest):
                     "Missing fields: name/email/message are required."
                 return ChatResponse(response=(result.text + "\n\n" + tip).strip())
 
-            send_result = send_inquiry_with_db(
+            send_result = send_inquiry_with_db_email(
                 name=name,
                 email=email,
                 message=message,
@@ -257,7 +465,7 @@ async def chat(req: ChatRequest):
                     action_data={"inquiry_id": send_result["inquiry_id"], "ses": send_result["ses"]},
                 )
             else:
-                # ✅ 关键：失败情况返回给 ChatResponse
+                # ✅ Critical: Return failure case to ChatResponse
                 fail_text = (
                     "邮件发送失败（我们已记录你的信息）。请稍后再试，或直接通过网站联系方式联系我们。\n"
                     f"错误信息：{send_result['error']}"
@@ -278,12 +486,16 @@ async def chat(req: ChatRequest):
 
 @app.post("/api/chat/stream")
 async def chat_stream(req: ChatRequest):
+    """
+    Streaming Chat API using Server-Sent Events (SSE).
+    Returns incremental text updates and tool call events.
+    """
     messages = to_llm_messages(req)
     tools = llm.tools()
 
     def gen():
         """
-        SSE: 每条消息 `data: {...}\n\n`
+        SSE Generator: Yields messages formatted as `data: {...}\n\n`
         """
         pending_tool = None
 
@@ -299,7 +511,7 @@ async def chat_stream(req: ChatRequest):
                     yield f"data: {json.dumps(payload, ensure_ascii=False)}\n\n".encode("utf-8")
 
                 elif ev["type"] == "done":
-                    # 如果有 tool_call，最后再发一个 final（是否执行由前端 allow_actions 决定）
+                    # If there is a tool_call, send a final one at the end (execution depends on frontend allow_actions)
                     if pending_tool and pending_tool.get("name") == "send_inquiry":
                         if req.allow_actions:
                             args = pending_tool.get("arguments", {}) or {}

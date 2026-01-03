@@ -11,7 +11,7 @@ This template is designed to be populated entirely by data files. Simply provide
 ### Prerequisites
 - Node.js 18+ installed.
 
-### Installation
+### Setup & Installation
 ```bash
 # Install dependencies
 npm install
@@ -20,6 +20,13 @@ npm run build
 
 # Run development server
 npm run dev
+```
+
+Start the backend server:
+
+```bash
+(mypy311) kaikailiu@Kaikais-MacBook-Pro AIwebsite % cd backend 
+(mypy311) kaikailiu@Kaikais-MacBook-Pro backend % uvicorn app.app:app --reload --port 8000
 ```
 
 Open [http://localhost:3000](http://localhost:3000) to view the site.
@@ -242,8 +249,13 @@ INFO:     Application startup complete.
 | **POST** | `/api/chat` | AI Chat (Standard) | JSON Body: `{ messages: [...], locale: "en", allow_actions: false }` |
 | **POST** | `/api/chat/stream` | AI Chat (Streaming) | JSON Body: Same as above. Returns Server-Sent Events (SSE). |
 | **POST** | `/api/send-email` | Send Contact Email | JSON Body: `{ name, email, message, locale }` |
+| **POST** | `/api/inquiry` | Submit Inquiry (Same as send-email but dedicated) | JSON Body: `{ name, email, message, locale }` |
 
 #### 3. Testing APIs (Curl Examples)
+Start the backend server as described in the previous section.
+```bash
+LOG_LEVEL=DEBUG uvicorn app.app:app --reload --port 8000
+```
 
 **A. Health Check**
 ```bash
@@ -300,6 +312,39 @@ curl -X POST "http://127.0.0.1:8000/api/send-email" \
     "message": "I am interested in bulk ordering.",
     "locale": "en"
   }'
+```
+
+**F. Submit Inquiry (With DB)**
+```bash
+curl -X POST "http://127.0.0.1:8000/api/inquiry" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Jane Smith",
+    "email": "jane@example.com",
+    "message": "Inquiry about OEM services.",
+    "locale": "en"
+  }'
+```
+
+**G. View SQLite Data**
+```bash
+# Enter the backend directory
+cd backend
+
+# Open the database using sqlite3
+sqlite3 inquiries.db
+
+# Run SQL query to view all inquiries
+sqlite> SELECT * FROM inquiries;
+
+# To exit sqlite3
+sqlite> .exit
+```
+
+### RAG
+Test build the RAG index
+```bash
+python -c "from app.embeddings_client import EmbeddingsClient; from app.data_store import DataStore; from app.product_rag import ProductRAG; from app.settings import settings; s=DataStore(settings.data_dir); rag=ProductRAG(s.products, EmbeddingsClient()); rag.build_index(); print('built', len(s.products))"
 ```
 
 ### 📧 Email Configuration

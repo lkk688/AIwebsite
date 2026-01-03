@@ -1,9 +1,12 @@
 'use client';
 import { useState, useEffect } from 'react';
+import { Locale } from '@/lib/types';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { Menu, X, Globe, ShoppingBag, Search } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
+
+import { config } from '@/config';
 
 export default function Navbar() {
   const { t, locale, switchLanguage } = useLanguage();
@@ -23,14 +26,15 @@ export default function Navbar() {
     return { name: value, href, isSearch };
   });
 
-  // @ts-ignore
-  const languages = t.languages || [
-    { code: 'en', label: 'EN', name: 'English' },
-    { code: 'zh', label: 'CN', name: '中文' },
-  ];
+  // Use languages from config
+  const languages = config.languages;
 
-  const currentLang = languages.find((lang: any) => lang.code === locale);
-  const nextLang = languages.find((lang: any) => lang.code !== locale) || languages[0];
+  const currentLang = languages.find((lang) => lang.code === locale);
+  const nextLang = languages.find((lang) => lang.code !== locale) || languages[0];
+
+  const handleSwitchLanguage = () => {
+    switchLanguage(nextLang.code as Locale);
+  };
 
   return (
     <nav className={`fixed w-full z-50 transition-all duration-300 ${scrolled ? 'bg-white shadow-md py-3' : 'bg-gradient-to-r from-blue-900/80 to-blue-800/80 backdrop-blur-md py-4 border-b border-white/10'}`}>
@@ -66,21 +70,21 @@ export default function Navbar() {
             )
           ))}
           <button
-            onClick={() => switchLanguage(locale === 'en' ? 'zh' : 'en')}
+            onClick={handleSwitchLanguage}
             className={`flex items-center space-x-1 px-3 py-1 rounded-full border-2 font-bold text-xs ${scrolled ? 'border-blue-600 text-blue-700 hover:bg-blue-50' : 'border-amber-400 text-amber-400 hover:bg-amber-400/10'} transition-all`}
           >
             <Globe size={14} />
-            <span>{locale === 'en' ? '中文' : 'EN'}</span>
+            <span>{nextLang.name}</span>
           </button>
         </div>
 
         {/* Mobile Menu Button */}
         <div className="md:hidden flex items-center space-x-4">
              <button
-            onClick={() => switchLanguage(locale === 'en' ? 'zh' : 'en')}
+            onClick={handleSwitchLanguage}
             className={`text-xs font-bold px-2 py-1 rounded border ${scrolled ? 'border-gray-300 text-gray-700' : 'border-white/30 text-white'}`}
           >
-            {locale === 'en' ? 'CN' : 'EN'}
+            {nextLang.label}
           </button>
           <button onClick={() => setIsOpen(!isOpen)} className={scrolled ? 'text-gray-900' : 'text-white'}>
             {isOpen ? <X size={28} /> : <Menu size={28} />}

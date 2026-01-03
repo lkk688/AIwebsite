@@ -5,6 +5,7 @@ import { Product } from '@/lib/types';
 import ProductCard from '@/components/products/ProductCard';
 import { Search, X } from 'lucide-react';
 import { getAllProducts } from '@/lib/products';
+import { config } from '@/config';
 
 interface ProductBrowserProps {
   initialCategory?: string;
@@ -97,9 +98,9 @@ export default function ProductBrowser({ initialCategory }: ProductBrowserProps)
              q: query,
              // @ts-ignore
              locale: t.nav?.home === '首页' ? 'zh' : 'en',
-             limit: '50' // Reasonable limit
+             limit: config.products.searchLimit
            });
-           const res = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL || ''}/api/products/search?${params.toString()}`);
+           const res = await fetch(`${config.apiBaseUrl}${config.endpoints.productSearch}?${params.toString()}`);
            if (res.ok) {
              const data = await res.json();
              const results = data.results || data;
@@ -113,10 +114,13 @@ export default function ProductBrowser({ initialCategory }: ProductBrowserProps)
                 // API doesn't return mainCount, default to 1 so at least cover image works
                 const mainCount = 1; 
 
+                // Helper to get image URL from pattern
+                const getImg = (pattern: string) => pattern.replace('{dir}', dir);
+
                 // Construct images (simple approximation)
                 const images = [{
                     id: 1,
-                    url: `/images/products/${dir}/1_1600.webp`,
+                    url: getImg(config.products.images.patterns.lg),
                     alt: item.name
                 }];
 
@@ -133,14 +137,14 @@ export default function ProductBrowser({ initialCategory }: ProductBrowserProps)
                         specifications: { en: {}, zh: {} },
                         images: images,
                         imagesBySize: {
-                            thumb: [`/images/products/${dir}/1_thumb.webp`],
-                            sm: [`/images/products/${dir}/1_600.webp`],
-                            lg: [`/images/products/${dir}/1_1600.webp`]
+                            thumb: [getImg(config.products.images.patterns.thumb)],
+                            sm: [getImg(config.products.images.patterns.sm)],
+                            lg: [getImg(config.products.images.patterns.lg)]
                         },
                         cover: {
-                             thumb: `/images/products/${dir}/1_thumb.webp`,
-                             sm: `/images/products/${dir}/1_600.webp`,
-                             lg: `/images/products/${dir}/1_1600.webp`
+                             thumb: getImg(config.products.images.patterns.thumb),
+                             sm: getImg(config.products.images.patterns.sm),
+                             lg: getImg(config.products.images.patterns.lg)
                         }
                     }
                 } as Product;

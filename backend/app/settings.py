@@ -30,6 +30,18 @@ class Settings(BaseSettings):
     # ---- Data (建议也从 env 来，但可给默认) ----
     data_dir: str = Field(default="../src/data", alias="DATA_DIR")
 
+    #new add embeddings
+    embeddings_backend: Literal["openai", "litellm"] = Field(default="openai", alias="EMBEDDINGS_BACKEND")
+    embeddings_model: str = Field(default="text-embedding-3-small", alias="EMBEDDINGS_MODEL")
+
+    # OpenAI embeddings
+    openai_api_key: str = Field(alias="OPENAI_API_KEY")
+    openai_base_url: str = Field(default="https://api.openai.com/v1", alias="OPENAI_BASE_URL")
+
+    # LiteLLM embeddings（走本地/多provider）
+    litellm_api_key: Optional[str] = Field(default=None, alias="LITELLM_API_KEY")
+    litellm_api_base: Optional[str] = Field(default=None, alias="LITELLM_API_BASE")
+
     # ---- AWS SES（生产建议必填；本地可 Optional）----
     aws_region: str = Field(default="us-west-2", alias="AWS_REGION")
     aws_access_key_id: Optional[str] = Field(default=None, alias="AWS_ACCESS_KEY_ID")

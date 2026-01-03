@@ -3,6 +3,8 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { Mail, MapPin, Phone, Printer, Smartphone, Globe, MessageCircle, ExternalLink } from 'lucide-react';
 import { useState, useEffect, FormEvent } from 'react';
 
+import { config } from '@/config';
+
 export default function Contact() {
   const { t, locale } = useLanguage();
   const [isClient, setIsClient] = useState(false);
@@ -18,23 +20,39 @@ export default function Contact() {
     setStatus('loading');
 
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL || ''}/api/send-email`, {
+      const response = await fetch(`${config.apiBaseUrl}${config.endpoints.inquiry}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(formState),
+        body: JSON.stringify({
+          ...formState,
+          locale: locale, // Ensure locale is passed
+        }),
       });
 
+      let data;
+      try {
+        data = await response.json();
+      } catch (e) {
+        // If response is not JSON (e.g. 404/500 HTML), data will be undefined
+        console.warn('Response was not JSON', e);
+      }
+
       if (!response.ok) {
-        throw new Error('Failed to send email');
+        const errorMessage = data?.detail || data?.error || `Request failed with status ${response.status}`;
+        throw new Error(errorMessage);
+      }
+
+      if (data && data.status === 'failed') {
+        throw new Error(data.error || 'Failed to send inquiry');
       }
 
       setStatus('success');
       setFormState({ name: '', email: '', message: '' });
       setTimeout(() => setStatus('idle'), 3000);
     } catch (error) {
-      console.error('Error sending email:', error);
+      console.error('Error sending inquiry:', error);
       setStatus('error');
     }
   };

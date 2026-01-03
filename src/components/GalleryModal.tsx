@@ -3,6 +3,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
+import { config } from '@/config';
+
 interface GalleryModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -17,7 +19,7 @@ export default function GalleryModal({
   title
 }: GalleryModalProps) {
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 24; // 6x4 grid
+  const itemsPerPage = config.gallery.itemsPerPage;
   const totalPages = Math.ceil(images.length / itemsPerPage);
 
   // Prevent scrolling when modal is open

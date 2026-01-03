@@ -5,8 +5,9 @@ from .settings import settings
 
 
 def build_send_inquiry_tool_schema_openai() -> List[Dict[str, Any]]:
-    # Responses API 的 function tool schema：type/name/parameters 平铺 + strict
-    # 参考 OpenAI function calling guide（Responses 模式）  [oai_citation:2‡OpenAI Platform](https://platform.openai.com/docs/guides/function-calling)
+    # Function tool schema for OpenAI Responses API: type/name/parameters are flattened + strict mode enabled.
+    # See OpenAI Function Calling Guide (Responses pattern):
+    # https://platform.openai.com/docs/guides/function-calling
     return [{
         "type": "function",
         "name": "send_inquiry",
@@ -26,7 +27,9 @@ def build_send_inquiry_tool_schema_openai() -> List[Dict[str, Any]]:
 
 
 def build_send_inquiry_tool_schema_litellm() -> List[Dict[str, Any]]:
-    # LiteLLM 走 chat.completions 风格（function schema nested under "function"）
+    # LiteLLM follows the standard Chat Completions API style (function schema nested under "function").
+    # See LiteLLM Provider Format:
+    # https://docs.litellm.ai/docs/completion/input#tools
     return [{
         "type": "function",
         "function": {
@@ -64,7 +67,8 @@ class LLMClient:
                 base_url=settings.openai_base_url,
             )
         else:
-            # litellm backend
+            # LiteLLM backend for multi-provider support
+            # https://docs.litellm.ai/docs/
             import litellm
             self.litellm = litellm
 
@@ -78,22 +82,32 @@ class LLMClient:
 
     def complete(self, messages: List[Dict[str, Any]], tools: List[Dict[str, Any]], temperature: float = 0.5) -> LLMResult:
         """
-        Non-stream call.
-        messages: [{"role":"system"|"user"|"assistant","content":"..."}]
+        Perform a non-streaming completion call to the LLM.
+        
+        Args:
+            messages: List of message dicts [{"role": "system"|"user"|"assistant", "content": "..."}]
+            tools: List of tool definitions
+            temperature: Sampling temperature
+            
+        Returns:
+            LLMResult containing text response and optional tool call
         """
         if self.backend == "openai":
-            # Responses API 推荐做法：input 直接传 messages items  [oai_citation:3‡OpenAI Platform](https://platform.openai.com/docs/guides/migrate-to-responses)
+            # Recommended approach for OpenAI Responses API: pass message items directly as input.
+            # See OpenAI Migration Guide to Responses:
+            # https://platform.openai.com/docs/guides/migrate-to-responses
             resp = self.client.responses.create(
                 model=self._model_name(),
                 input=messages,
                 tools=tools,
-                #temperature=temperature,
+                #temperature=temperature, # Note: temperature might not be supported in all Responses API versions yet
             )
             text = getattr(resp, "output_text", "") or ""
             tool_call = _extract_tool_call_from_openai_response(resp)
             return LLMResult(text=text, tool_call=tool_call)
 
-        # litellm -> chat.completions style
+        # LiteLLM -> Standard Chat Completions API style
+        # https://docs.litellm.ai/docs/completion
         resp = self.litellm.completion(
             model=self._model_name(),
             messages=messages,
@@ -110,13 +124,18 @@ class LLMClient:
 
     def stream(self, messages: List[Dict[str, Any]], tools: List[Dict[str, Any]], temperature: float = 0.5) -> Iterable[Dict[str, Any]]:
         """
-        Yield dict events:
-          {"type":"delta","text":"..."}
-          {"type":"tool_call","name":"send_inquiry","arguments":{...}}
-          {"type":"done"}
+        Perform a streaming completion call to the LLM.
+        
+        Yields dict events:
+          {"type": "delta", "text": "..."}
+          {"type": "tool_call", "name": "send_inquiry", "arguments": {...}}
+          {"type": "done"}
         """
         if self.backend == "openai":
-            # Responses API streaming events: response.output_text.delta, response.function_call_arguments.*  [oai_citation:4‡OpenAI Platform](https://platform.openai.com/docs/api-reference/responses-streaming)
+            # OpenAI Responses API Streaming
+            # Events: response.output_text.delta, response.function_call_arguments.delta, etc.
+            # See OpenAI Responses Streaming Reference:
+            # https://platform.openai.com/docs/api-reference/responses-streaming
             stream = self.client.responses.create(
                 model=self._model_name(),
                 input=messages,
@@ -153,13 +172,14 @@ class LLMClient:
                     yield {"type": "tool_call", "name": tool_name, "arguments": tool_args}
 
                 elif et == "response.completed":
-                    # end
+                    # Stream completed
                     break
 
             yield {"type": "done"}
             return
 
-        # litellm streaming (chat.completions style)
+        # LiteLLM Streaming (Standard Chat Completions style)
+        # https://docs.litellm.ai/docs/completion/stream
         stream = self.litellm.completion(
             model=self._model_name(),
             messages=messages,
@@ -175,13 +195,15 @@ class LLMClient:
             choice = chunk["choices"][0]
             delta = choice.get("delta", {}) or {}
 
-            # text token
+            # Text token
             if "content" in delta and delta["content"]:
                 yield {"type": "delta", "text": delta["content"]}
 
-            # tool call (best-effort;不同 provider 行为会有差异)
+            # Tool call (best-effort; behavior varies by provider)
+            # We accumulate or wait for finish_reason to parse the full tool call
             if "tool_calls" in delta and delta["tool_calls"]:
-                # 这里不强依赖分片拼接，等最终 message/tool_calls 更可靠
+                # We don't rely on fragmented tool call assembly here, 
+                # waiting for the final message/tool_calls is more reliable.
                 pass
 
             if choice.get("finish_reason") in ("tool_calls", "stop"):
@@ -196,7 +218,9 @@ class LLMClient:
 
 def _extract_tool_call_from_openai_response(resp: Any) -> Optional[Dict[str, Any]]:
     """
-    Responses API output 是 items 数组，可能包含 function_call item。  [oai_citation:5‡OpenAI Platform](https://platform.openai.com/docs/guides/migrate-to-responses)
+    OpenAI Responses API output is a list of items, which may include a function_call item.
+    See OpenAI Responses API Structure:
+    https://platform.openai.com/docs/guides/migrate-to-responses
     """
     output = getattr(resp, "output", None)
     if output is None and isinstance(resp, dict):

@@ -5,19 +5,21 @@ import { motion } from 'framer-motion';
 import { Grid, ArrowRight } from 'lucide-react';
 import GalleryModal from './GalleryModal';
 
+import { config } from '@/config';
+
 // Generate list of images JWL001.jpg to JWL238.jpg
 const generateSampleImages = () => {
   const images = [];
   for (let i = 1; i <= 238; i++) {
     const num = i.toString().padStart(3, '0');
-    images.push(`/images/products/items/JWL${num}.jpg`);
+    images.push(config.gallery.imagePattern.replace('{num}', num));
   }
   return images;
 };
 
 const allSampleImages = generateSampleImages();
 
-export default function CustomerSamples() {
+export default function GridImageView() {
   const { t } = useLanguage();
   const [isModalOpen, setIsModalOpen] = useState(false);
 

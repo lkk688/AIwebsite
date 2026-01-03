@@ -341,6 +341,20 @@ sqlite> SELECT * FROM inquiries;
 sqlite> .exit
 ```
 
+#### Test tool calling
+
+```bash
+(mypy311) kaikailiu@Kaikais-MacBook-Pro backend % curl -N -X POST "http://127.0.0.1:8000/api/chat/stream" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "locale":"en",
+    "allow_actions": true,
+    "messages":[
+      {"role":"user","text":"CONFIRM SEND. Name: Kaikai. Email: lkk688@gmail.com. Message: I need to order 1000 units. Please send me the quote."}
+    ]
+  }'
+```
+
 ### RAG
 Test build the RAG index
 ```bash

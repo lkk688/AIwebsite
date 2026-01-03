@@ -1,5 +1,5 @@
 import json
-from typing import Any, Dict, List, Optional, Tuple, Iterable
+from typing import Any, Dict, List, Optional, Tuple, Iterable, Generator
 
 from .settings import settings
 
@@ -121,65 +121,131 @@ class LLMClient:
         text = msg.get("content") or ""
         tool_call = _extract_tool_call_from_litellm_message(msg)
         return LLMResult(text=text, tool_call=tool_call)
-
-    def stream(self, messages: List[Dict[str, Any]], tools: List[Dict[str, Any]], temperature: float = 0.5) -> Iterable[Dict[str, Any]]:
+    
+    def stream(
+        self,
+        messages: List[Dict[str, Any]],
+        tools: List[Dict[str, Any]],
+        temperature: float = 0.5,
+    ) -> Iterable[Dict[str, Any]]:
         """
         Perform a streaming completion call to the LLM.
-        
-        Yields dict events:
+
+        Yields normalized dict events:
           {"type": "delta", "text": "..."}
           {"type": "tool_call", "name": "send_inquiry", "arguments": {...}}
           {"type": "done"}
         """
         if self.backend == "openai":
-            # OpenAI Responses API Streaming
-            # Events: response.output_text.delta, response.function_call_arguments.delta, etc.
-            # See OpenAI Responses Streaming Reference:
-            # https://platform.openai.com/docs/api-reference/responses-streaming
-            stream = self.client.responses.create(
-                model=self._model_name(),
-                input=messages,
-                tools=tools,
-                #temperature=temperature,
-                stream=True,
-            )
-
-            arg_buf = ""
-            tool_name: Optional[str] = None
-            tool_args: Optional[Dict[str, Any]] = None
-
-            for event in stream:
-                et = getattr(event, "type", None) or (event.get("type") if isinstance(event, dict) else None)
-
-                if et == "response.output_text.delta":
-                    delta = getattr(event, "delta", None) or event.get("delta")
-                    if delta:
-                        yield {"type": "delta", "text": delta}
-
-                elif et == "response.function_call_arguments.delta":
-                    d = getattr(event, "delta", None) or event.get("delta")
-                    if d:
-                        arg_buf += d
-
-                elif et == "response.function_call_arguments.done":
-                    tool_name = getattr(event, "name", None) or event.get("name")
-                    args_str = getattr(event, "arguments", None) or event.get("arguments") or arg_buf
-                    try:
-                        tool_args = json.loads(args_str) if isinstance(args_str, str) else (args_str or {})
-                    except Exception:
-                        tool_args = {"_raw": args_str}
-
-                    yield {"type": "tool_call", "name": tool_name, "arguments": tool_args}
-
-                elif et == "response.completed":
-                    # Stream completed
-                    break
-
-            yield {"type": "done"}
+            yield from self._stream_openai_responses(messages=messages, tools=tools)
             return
 
-        # LiteLLM Streaming (Standard Chat Completions style)
-        # https://docs.litellm.ai/docs/completion/stream
+        yield from self._stream_litellm(messages=messages, tools=tools, temperature=temperature)
+
+    # -------------------------------
+    # OpenAI Responses Streaming
+    # -------------------------------
+
+    def _ev_type(self, ev: Any) -> Optional[str]:
+        if isinstance(ev, dict):
+            return ev.get("type")
+        return getattr(ev, "type", None)
+
+    def _ev_get(self, ev: Any, key: str, default=None):
+        """
+        Safe getter for both dict events and SDK event objects.
+        """
+        if isinstance(ev, dict):
+            return ev.get(key, default)
+        return getattr(ev, key, default)
+
+    def _stream_openai_responses(
+        self,
+        messages: List[Dict[str, Any]],
+        tools: List[Dict[str, Any]],
+    ) -> Generator[Dict[str, Any], None, None]:
+        """
+        OpenAI Responses API streaming -> normalized events.
+
+        We accumulate function-call arguments across delta events and emit ONE tool_call at args.done.
+        """
+        # Don't pass temperature here (some models don't support it; you already saw 400)
+        stream = self.client.responses.create(
+            model=self._model_name(),
+            input=messages,
+            tools=tools,
+            stream=True,
+        )
+
+        arg_buf: List[str] = []
+        last_tool_name: Optional[str] = None
+        emitted_tool_call = False
+
+        for ev in stream:
+            et = self._ev_type(ev)
+
+            if et == "response.output_text.delta":
+                delta = self._ev_get(ev, "delta", "")
+                if delta:
+                    yield {"type": "delta", "text": delta}
+                continue
+
+            # Arguments stream in chunks
+            if et == "response.function_call_arguments.delta":
+                d = self._ev_get(ev, "delta", "")
+                if d:
+                    arg_buf.append(d)
+                continue
+
+            # Arguments complete -> emit tool_call once
+            if et == "response.function_call_arguments.done":
+                if emitted_tool_call:
+                    continue
+
+                tool_name = self._ev_get(ev, "name", None)
+                # ✅ fallback: some SDK/provider cases may not include name
+                if not tool_name and tools:
+                    tool_name = tools[0].get("name")
+
+                args_str = self._ev_get(ev, "arguments", None)
+                if not args_str:
+                    args_str = "".join(arg_buf)
+
+                args: Dict[str, Any]
+                try:
+                    args = json.loads(args_str) if isinstance(args_str, str) and args_str.strip() else {}
+                except Exception:
+                    args = {"_raw": args_str}
+
+                last_tool_name = tool_name
+                emitted_tool_call = True
+                yield {"type": "tool_call", "name": last_tool_name, "arguments": args}
+                continue
+
+            # Completed
+            if et in ("response.completed", "response.done"):
+                break
+
+            # Ignore all other event types
+            continue
+
+        yield {"type": "done"}
+
+    # -------------------------------
+    # LiteLLM Streaming (ChatCompletions style)
+    # -------------------------------
+
+    def _stream_litellm(
+        self,
+        messages: List[Dict[str, Any]],
+        tools: List[Dict[str, Any]],
+        temperature: float,
+    ) -> Generator[Dict[str, Any], None, None]:
+        """
+        LiteLLM streaming -> normalized events.
+
+        Note: tool calls are provider-dependent; we attempt best-effort extraction on finish.
+        """
         stream = self.litellm.completion(
             model=self._model_name(),
             messages=messages,
@@ -191,29 +257,124 @@ class LLMClient:
         )
 
         final_tool_call = None
+
         for chunk in stream:
-            choice = chunk["choices"][0]
-            delta = choice.get("delta", {}) or {}
+            choice = (chunk.get("choices") or [{}])[0]
+            delta = choice.get("delta") or {}
 
-            # Text token
-            if "content" in delta and delta["content"]:
-                yield {"type": "delta", "text": delta["content"]}
+            # Text tokens
+            txt = delta.get("content")
+            if txt:
+                yield {"type": "delta", "text": txt}
 
-            # Tool call (best-effort; behavior varies by provider)
-            # We accumulate or wait for finish_reason to parse the full tool call
-            if "tool_calls" in delta and delta["tool_calls"]:
-                # We don't rely on fragmented tool call assembly here, 
-                # waiting for the final message/tool_calls is more reliable.
-                pass
-
-            if choice.get("finish_reason") in ("tool_calls", "stop"):
+            # Some providers stream tool_calls fragments; we skip assembling fragments here.
+            # We will extract the final tool call from the final message if present.
+            finish = choice.get("finish_reason")
+            if finish in ("tool_calls", "stop"):
                 msg = choice.get("message") or {}
                 final_tool_call = _extract_tool_call_from_litellm_message(msg)
 
         if final_tool_call:
-            yield {"type": "tool_call", "name": final_tool_call["name"], "arguments": final_tool_call.get("arguments", {})}
+            yield {
+                "type": "tool_call",
+                "name": final_tool_call.get("name"),
+                "arguments": final_tool_call.get("arguments", {}) or {},
+            }
 
         yield {"type": "done"}
+
+    # def stream(self, messages: List[Dict[str, Any]], tools: List[Dict[str, Any]], temperature: float = 0.5) -> Iterable[Dict[str, Any]]:
+    #     """
+    #     Perform a streaming completion call to the LLM.
+        
+    #     Yields dict events:
+    #       {"type": "delta", "text": "..."}
+    #       {"type": "tool_call", "name": "send_inquiry", "arguments": {...}}
+    #       {"type": "done"}
+    #     """
+    #     if self.backend == "openai":
+    #         # OpenAI Responses API Streaming
+    #         # Events: response.output_text.delta, response.function_call_arguments.delta, etc.
+    #         # See OpenAI Responses Streaming Reference:
+    #         # https://platform.openai.com/docs/api-reference/responses-streaming
+    #         stream = self.client.responses.create(
+    #             model=self._model_name(),
+    #             input=messages,
+    #             tools=tools,
+    #             #temperature=temperature,
+    #             stream=True,
+    #         )
+
+    #         arg_buf = ""
+    #         tool_name: Optional[str] = None
+    #         tool_args: Optional[Dict[str, Any]] = None
+
+    #         for event in stream:
+    #             et = getattr(event, "type", None) or (event.get("type") if isinstance(event, dict) else None)
+
+    #             if et == "response.output_text.delta":
+    #                 delta = getattr(event, "delta", None) or event.get("delta")
+    #                 if delta:
+    #                     yield {"type": "delta", "text": delta}
+
+    #             elif et == "response.function_call_arguments.delta":
+    #                 d = getattr(event, "delta", None) or event.get("delta")
+    #                 if d:
+    #                     arg_buf += d
+
+    #             elif et == "response.function_call_arguments.done":
+    #                 tool_name = getattr(event, "name", None) or event.get("name")
+    #                 args_str = getattr(event, "arguments", None) or event.get("arguments") or arg_buf
+    #                 try:
+    #                     tool_args = json.loads(args_str) if isinstance(args_str, str) else (args_str or {})
+    #                 except Exception:
+    #                     tool_args = {"_raw": args_str}
+
+    #                 yield {"type": "tool_call", "name": tool_name, "arguments": tool_args}
+
+    #             elif et == "response.completed":
+    #                 # Stream completed
+    #                 break
+
+    #         yield {"type": "done"}
+    #         return
+
+    #     # LiteLLM Streaming (Standard Chat Completions style)
+    #     # https://docs.litellm.ai/docs/completion/stream
+    #     stream = self.litellm.completion(
+    #         model=self._model_name(),
+    #         messages=messages,
+    #         tools=tools,
+    #         temperature=temperature,
+    #         stream=True,
+    #         api_key=settings.litellm_api_key,
+    #         api_base=settings.litellm_api_base,
+    #     )
+
+    #     final_tool_call = None
+    #     for chunk in stream:
+    #         choice = chunk["choices"][0]
+    #         delta = choice.get("delta", {}) or {}
+
+    #         # Text token
+    #         if "content" in delta and delta["content"]:
+    #             yield {"type": "delta", "text": delta["content"]}
+
+    #         # Tool call (best-effort; behavior varies by provider)
+    #         # We accumulate or wait for finish_reason to parse the full tool call
+    #         if "tool_calls" in delta and delta["tool_calls"]:
+    #             # We don't rely on fragmented tool call assembly here, 
+    #             # waiting for the final message/tool_calls is more reliable.
+    #             pass
+
+    #         if choice.get("finish_reason") in ("tool_calls", "stop"):
+    #             msg = choice.get("message") or {}
+    #             final_tool_call = _extract_tool_call_from_litellm_message(msg)
+
+    #     if final_tool_call:
+    #         yield {"type": "tool_call", "name": final_tool_call["name"], "arguments": final_tool_call.get("arguments", {})}
+
+    #     yield {"type": "done"}
 
 
 def _extract_tool_call_from_openai_response(resp: Any) -> Optional[Dict[str, Any]]:

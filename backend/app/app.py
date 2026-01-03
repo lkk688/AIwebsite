@@ -237,6 +237,35 @@ class EmailRequest(BaseModel):
 
 # ----------- Prompts -----------
 
+# def build_system_prompt(locale: str) -> str:
+#     """
+#     Builds the system prompt for the LLM based on the user's locale.
+#     Includes company info and rules for the AI assistant.
+#     """
+#     info = store.website_info
+#     company = (info.get("companyName", {}) or {}).get(locale) or (info.get("companyName", {}) or {}).get("en") or "JWL Travel Gear"
+
+#     if locale == "zh":
+#         return f"""你是 {company} 的网站客服 AI 助手（箱包/背包工厂）。
+# 目标：专业、简洁、准确地回答用户关于公司、产品、OEM/ODM 的问题。
+
+# 规则：
+# 1) 只根据我提供的上下文回答；没有把握就建议用户联系我们。
+# 2) 用户想询价/打样/下单：先询问需求（品类、数量、目标价格、材质、logo 工艺、交期、目的市场等）。
+# 3) 只有当用户明确表示“确认发送邮件”并提供 name/email/message 时，才可以调用 send_inquiry 工具。
+# 4) 如果用户没确认或信息不全：请继续追问，不要调用工具。
+# """
+#     else:
+#         return f"""You are the website support AI assistant for {company}, a premium bag manufacturer.
+# Goal: answer questions about products, OEM/ODM services, and company info accurately and professionally.
+
+# Rules:
+# 1) Answer only based on the provided context. If uncertain, suggest contacting support.
+# 2) For quotes/sampling/orders: ask for requirements (category, quantity, target price, materials, logo method, lead time, market).
+# 3) Only call the send_inquiry tool AFTER the user explicitly confirms sending an email and provides name/email/message.
+# 4) If not confirmed or missing info: ask follow-up questions and do NOT call the tool.
+# """
+
 def build_system_prompt(locale: str) -> str:
     """
     Builds the system prompt for the LLM based on the user's locale.
@@ -249,21 +278,46 @@ def build_system_prompt(locale: str) -> str:
         return f"""你是 {company} 的网站客服 AI 助手（箱包/背包工厂）。
 目标：专业、简洁、准确地回答用户关于公司、产品、OEM/ODM 的问题。
 
-规则：
-1) 只根据我提供的上下文回答；没有把握就建议用户联系我们。
-2) 用户想询价/打样/下单：先询问需求（品类、数量、目标价格、材质、logo 工艺、交期、目的市场等）。
-3) 只有当用户明确表示“确认发送邮件”并提供 name/email/message 时，才可以调用 send_inquiry 工具。
-4) 如果用户没确认或信息不全：请继续追问，不要调用工具。
+严格动作策略（非常重要）：
+- 你有一个工具 send_inquiry(name, email, message)，用于给销售团队发送邮件。
+- 如果用户已经提供了必填字段：name / email / message，并且明确表示“确认发送 / 直接发送 / 现在就发 / 不用再问，直接发”，
+  你必须立刻调用 send_inquiry 发送邮件。
+- 满足上述条件时，不要再追问目标价格、材质、Logo、交期、市场等额外信息（这些是可选项），
+  可以在邮件发送后再作为补充追问。
+
+通用规则：
+1) 只根据提供的上下文回答；没有把握就建议用户联系我们。
+2) 用户想询价/打样/下单但未确认发送邮件，或缺少必填字段：请简洁追问。
+3) 只有当用户明确确认发送 AND 已提供 name/email/message，才可以调用 send_inquiry。
+4) 未确认：先让用户确认发送。
+5) 信息不全：只询问缺失的字段。
+
+输出要求：
+- 调用 send_inquiry 时，message 要包含：产品/数量/用户已给出的所有需求信息。
+- 不要编造用户未提供的信息。
 """
     else:
         return f"""You are the website support AI assistant for {company}, a premium bag manufacturer.
 Goal: answer questions about products, OEM/ODM services, and company info accurately and professionally.
 
-Rules:
+STRICT ACTION POLICY (IMPORTANT):
+- You have a tool called send_inquiry(name, email, message) that sends an email to the sales team.
+- If the user has provided ALL required fields (name, email, message) AND explicitly confirms sending
+  (e.g., "confirm send", "just send", "send it now", "please send"), you MUST call send_inquiry immediately.
+- When the above condition is met, DO NOT ask for additional details (price, materials, lead time, market, etc.).
+  Those details are optional and can be asked only AFTER the email is sent, or in a follow-up message.
+
+GENERAL RULES:
 1) Answer only based on the provided context. If uncertain, suggest contacting support.
-2) For quotes/sampling/orders: ask for requirements (category, quantity, target price, materials, logo method, lead time, market).
-3) Only call the send_inquiry tool AFTER the user explicitly confirms sending an email and provides name/email/message.
-4) If not confirmed or missing info: ask follow-up questions and do NOT call the tool.
+2) If the user wants a quote/sampling/order but has NOT confirmed sending an email OR is missing required fields,
+   ask concise follow-up questions.
+3) Only call send_inquiry AFTER explicit confirmation AND required fields are present.
+4) If confirmation is missing: ask the user to confirm sending.
+5) If required fields are missing: ask ONLY for the missing fields.
+
+OUTPUT REQUIREMENT:
+- When calling send_inquiry, pass a single clear message that includes the product(s) and quantity and any details provided.
+- Do not invent details that the user did not provide.
 """
 
 
@@ -484,59 +538,161 @@ async def chat(req: ChatRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+# @app.post("/api/chat/stream")
+# async def chat_stream(req: ChatRequest):
+#     """
+#     Streaming Chat API using Server-Sent Events (SSE).
+#     Returns incremental text updates and tool call events.
+#     """
+#     messages = to_llm_messages(req)
+#     tools = llm.tools()
+
+#     def gen():
+#         """
+#         SSE Generator: Yields messages formatted as `data: {...}\n\n`
+#         """
+#         pending_tool = None
+
+#         try:
+#             for ev in llm.stream(messages=messages, tools=tools, temperature=0.6):
+#                 if ev["type"] == "delta":
+#                     payload = {"type": "delta", "text": ev["text"]}
+#                     yield f"data: {json.dumps(payload, ensure_ascii=False)}\n\n".encode("utf-8")
+
+#                 elif ev["type"] == "tool_call":
+#                     pending_tool = ev
+#                     payload = {"type": "tool_call", "name": ev.get("name"), "arguments": ev.get("arguments", {})}
+#                     yield f"data: {json.dumps(payload, ensure_ascii=False)}\n\n".encode("utf-8")
+
+#                 elif ev["type"] == "done":
+#                     # If there is a tool_call, send a final one at the end (execution depends on frontend allow_actions)
+#                     if pending_tool and pending_tool.get("name") == "send_inquiry":
+#                         if req.allow_actions:
+#                             args = pending_tool.get("arguments", {}) or {}
+#                             name = args.get("name")
+#                             email = args.get("email")
+#                             message = args.get("message")
+#                             if name and email and message:
+#                                 ses = mailer.send_inquiry(name=name, email=email, message=message)
+#                                 final_text = "已发送给我们的团队，我们会尽快联系你。" if req.locale == "zh" else "Sent to our team. We’ll get back to you shortly."
+#                                 payload = {"type": "final", "text": final_text, "action": "send_inquiry", "action_data": {"ses": ses}}
+#                                 yield f"data: {json.dumps(payload, ensure_ascii=False)}\n\n".encode("utf-8")
+#                             else:
+#                                 final_text = "信息不全：需要 name/email/message 才能发送。" if req.locale == "zh" else "Missing fields: name/email/message are required."
+#                                 payload = {"type": "final", "text": final_text}
+#                                 yield f"data: {json.dumps(payload, ensure_ascii=False)}\n\n".encode("utf-8")
+#                         else:
+#                             final_text = "如需发送邮件，请点击确认并提供姓名/邮箱/留言内容。" if req.locale == "zh" else "To send an email, please confirm and provide name/email/message."
+#                             payload = {"type": "final", "text": final_text}
+#                             yield f"data: {json.dumps(payload, ensure_ascii=False)}\n\n".encode("utf-8")
+#                     else:
+#                         payload = {"type": "done"}
+#                         yield f"data: {json.dumps(payload, ensure_ascii=False)}\n\n".encode("utf-8")
+
+#         except Exception as e:
+#             payload = {"type": "error", "message": str(e)}
+#             yield f"data: {json.dumps(payload, ensure_ascii=False)}\n\n".encode("utf-8")
+
+#     return StreamingResponse(gen(), media_type="text/event-stream")
+
 @app.post("/api/chat/stream")
 async def chat_stream(req: ChatRequest):
-    """
-    Streaming Chat API using Server-Sent Events (SSE).
-    Returns incremental text updates and tool call events.
-    """
     messages = to_llm_messages(req)
-    tools = llm.tools()
+    tools = llm.tools() if req.allow_actions else []  # ✅ 和 /api/chat 对齐
+
+    def sse(payload: dict):
+        return f"data: {json.dumps(payload, ensure_ascii=False)}\n\n".encode("utf-8")
 
     def gen():
-        """
-        SSE Generator: Yields messages formatted as `data: {...}\n\n`
-        """
         pending_tool = None
+        assistant_text_chunks = []
 
         try:
             for ev in llm.stream(messages=messages, tools=tools, temperature=0.6):
-                if ev["type"] == "delta":
-                    payload = {"type": "delta", "text": ev["text"]}
-                    yield f"data: {json.dumps(payload, ensure_ascii=False)}\n\n".encode("utf-8")
+                t = ev.get("type")
 
-                elif ev["type"] == "tool_call":
+                if t == "delta":
+                    assistant_text_chunks.append(ev.get("text", ""))
+                    yield sse({"type": "delta", "text": ev.get("text", "")})
+
+                elif t == "tool_call":
                     pending_tool = ev
-                    payload = {"type": "tool_call", "name": ev.get("name"), "arguments": ev.get("arguments", {})}
-                    yield f"data: {json.dumps(payload, ensure_ascii=False)}\n\n".encode("utf-8")
+                    yield sse({
+                        "type": "tool_call",
+                        "name": ev.get("name"),
+                        "arguments": ev.get("arguments", {}),
+                    })
 
-                elif ev["type"] == "done":
-                    # If there is a tool_call, send a final one at the end (execution depends on frontend allow_actions)
+                elif t == "done":
+                    # ✅ 统一在 done 时输出 final（确保用户看到结果）
                     if pending_tool and pending_tool.get("name") == "send_inquiry":
-                        if req.allow_actions:
-                            args = pending_tool.get("arguments", {}) or {}
-                            name = args.get("name")
-                            email = args.get("email")
-                            message = args.get("message")
-                            if name and email and message:
-                                ses = mailer.send_inquiry(name=name, email=email, message=message)
-                                final_text = "已发送给我们的团队，我们会尽快联系你。" if req.locale == "zh" else "Sent to our team. We’ll get back to you shortly."
-                                payload = {"type": "final", "text": final_text, "action": "send_inquiry", "action_data": {"ses": ses}}
-                                yield f"data: {json.dumps(payload, ensure_ascii=False)}\n\n".encode("utf-8")
-                            else:
-                                final_text = "信息不全：需要 name/email/message 才能发送。" if req.locale == "zh" else "Missing fields: name/email/message are required."
-                                payload = {"type": "final", "text": final_text}
-                                yield f"data: {json.dumps(payload, ensure_ascii=False)}\n\n".encode("utf-8")
-                        else:
-                            final_text = "如需发送邮件，请点击确认并提供姓名/邮箱/留言内容。" if req.locale == "zh" else "To send an email, please confirm and provide name/email/message."
-                            payload = {"type": "final", "text": final_text}
-                            yield f"data: {json.dumps(payload, ensure_ascii=False)}\n\n".encode("utf-8")
-                    else:
-                        payload = {"type": "done"}
-                        yield f"data: {json.dumps(payload, ensure_ascii=False)}\n\n".encode("utf-8")
+                        if not req.allow_actions:
+                            final_text = "如需发送邮件，请点击确认并提供姓名/邮箱/留言内容。" if req.locale == "zh" \
+                                else "To send an email, please confirm and provide name/email/message."
+                            yield sse({"type": "final", "text": final_text})
+                            yield sse({"type": "done"})
+                            return
 
+                        args = pending_tool.get("arguments", {}) or {}
+                        name = args.get("name")
+                        email = args.get("email")
+                        message = args.get("message")
+
+                        if not (name and email and message):
+                            final_text = "信息不全：需要 name/email/message 才能发送。" if req.locale == "zh" \
+                                else "Missing fields: name/email/message are required."
+                            yield sse({"type": "final", "text": final_text})
+                            yield sse({"type": "done"})
+                            return
+
+                        # ✅ 走 DB + SES，并把成功/失败返回给用户
+                        send_result = send_inquiry_with_db_email(
+                            name=name,
+                            email=email,
+                            message=message,
+                            source="chat_stream_tool",
+                            locale=req.locale,
+                        )
+
+                        if send_result["ok"]:
+                            final_text = "已发送给我们的团队，我们会尽快联系你。" if req.locale == "zh" \
+                                else "Sent to our team. We’ll get back to you shortly."
+                            yield sse({
+                                "type": "final",
+                                "text": final_text,
+                                "action": "send_inquiry",
+                                "action_data": {"inquiry_id": send_result["inquiry_id"], "ses": send_result["ses"]},
+                            })
+                        else:
+                            final_text = (
+                                "邮件发送失败（我们已记录你的信息）。请稍后再试，或直接通过网站联系方式联系我们。\n"
+                                f"错误信息：{send_result['error']}"
+                            ) if req.locale == "zh" else (
+                                "Email sending failed (we have saved your message). Please try again later or contact us via the website.\n"
+                                f"Error: {send_result['error']}"
+                            )
+                            yield sse({
+                                "type": "final",
+                                "text": final_text,
+                                "action": "send_inquiry_failed",
+                                "action_data": {"inquiry_id": send_result["inquiry_id"], "error": send_result["error"]},
+                            })
+
+                        yield sse({"type": "done"})
+                        return
+
+                    # 没 tool call
+                    yield sse({"type": "final", "text": "".join(assistant_text_chunks).strip()})
+                    yield sse({"type": "done"})
+                    return
+
+        except GeneratorExit:
+            # ✅ 客户端断开会触发；别当错误
+            logger.warning("SSE client disconnected (GeneratorExit)")
+            return
         except Exception as e:
-            payload = {"type": "error", "message": str(e)}
-            yield f"data: {json.dumps(payload, ensure_ascii=False)}\n\n".encode("utf-8")
+            logger.exception("chat_stream error")
+            yield sse({"type": "error", "message": str(e)})
+            return
 
     return StreamingResponse(gen(), media_type="text/event-stream")

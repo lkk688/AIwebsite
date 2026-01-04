@@ -4,3 +4,12 @@ node_modules
 backend/__pycache__
 Archive*.zip
 *.log
+
+.env
+.env.*
+__pycache__
+*.pyc
+*.sqlite
+*.db
+email_logs.txt
+emails.json

@@ -60,5 +60,8 @@ export const config = {
   gallery: {
     itemsPerPage: 24, // 6x4 grid
     imagePattern: '/images/products/items/JWL{num}.jpg'
-  }
+  },
+
+  // Control : You can re-enable it at any time by adding NEXT_PUBLIC_PROMOTION_BANNER="Your Message" to your .env file.
+  promotionBanner: process.env.NEXT_PUBLIC_PROMOTION_BANNER,
 };

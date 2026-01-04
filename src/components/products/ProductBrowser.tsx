@@ -115,7 +115,7 @@ export default function ProductBrowser({ initialCategory }: ProductBrowserProps)
                 const mainCount = 1; 
 
                 // Helper to get image URL from pattern
-                const getImg = (pattern: string) => pattern.replace('{dir}', dir);
+                const getImg = (pattern: string) => `${config.products.images.basePath}/${pattern.replace('{dir}', dir)}`;
 
                 // Construct images (simple approximation)
                 const images = [{

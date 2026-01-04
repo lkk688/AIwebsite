@@ -47,6 +47,21 @@ backend/.env
 *.pem
 *.db
 
+# env files
+.env
+.env.*
+!.env.example
+
+# python
+__pycache__/
+*.pyc
+
+# secrets / local db
+*.sqlite
+*.db
+email_logs.txt
+emails.json
+
 backend/app/__pycache__
 *.pyc
 src/data

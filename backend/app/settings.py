@@ -50,5 +50,8 @@ class Settings(BaseSettings):
     ses_to_email: Optional[str] = Field(default=None, alias="SES_TO_EMAIL")
     ses_configuration_set: Optional[str] = Field(default=None, alias="SES_CONFIGURATION_SET")
 
+    # ---- Features ----
+    enable_semantic_search: bool = Field(default=True, alias="ENABLE_SEMANTIC_SEARCH")
+
 
 settings = Settings()

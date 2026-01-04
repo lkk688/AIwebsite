@@ -12,9 +12,8 @@ from .email_ses import SesMailer
 from .llm_client import LLMClient
 from .db import init_db, insert_inquiry, mark_inquiry_sent, mark_inquiry_failed
 from .embeddings_client import EmbeddingsClient
-from .product_rag import ProductRAG
+from .product_rag import init_product_rag, get_product_rag
 import logging
-from typing import Any, Dict, List
 import os
 
 def setup_logging():
@@ -70,6 +69,8 @@ app.add_middleware(
 
 store = DataStore(settings.data_dir)
 llm = LLMClient()
+embedder = EmbeddingsClient()
+init_product_rag(store.products, embedder)
 
 # Initialize SES Mailer
 # Uses boto3 to send emails via AWS SES
@@ -83,9 +84,7 @@ mailer = SesMailer(
     configuration_set=settings.ses_configuration_set,
 )
 
-embedder = EmbeddingsClient()
-product_rag = ProductRAG(store.products, embedder)
-product_rag.build_index()  # 产品少，启动时建一次即可
+
 
 def send_inquiry_with_db_email(name: str, email: str, message: str, source: str, locale: str):
     """
@@ -159,7 +158,13 @@ def send_inquiry_with_db(name: str, email: str, message: str, source: str, local
         }
 
 def build_rag_context(query: str, locale: str, k: int = 5) -> Dict[str, Any]:
-    r = product_rag.retrieve(query, locale=locale, k=k)
+    try:
+        rag = get_product_rag()
+        r = rag.retrieve(query, locale=locale, k=k)
+    except RuntimeError:
+        logger.error("ProductRAG not initialized")
+        return {"mode": "none", "products": [], "context": "", "hits_summary": []}
+
     mode = r.get("mode")
     products = r.get("products", []) or []
 
@@ -468,7 +473,13 @@ async def products_search(
     """
     Search for products by keyword.
     """
-    results = search_products(store.products, q, locale=locale, limit=limit)
+    results = search_products(
+        store.products, 
+        q, 
+        locale=locale, 
+        limit=limit,
+        semantic=settings.enable_semantic_search
+    )
     return {"query": q, "count": len(results), "results": results}
 
 

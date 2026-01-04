@@ -269,3 +269,30 @@ class ProductRAG:
 
         hits = self.semantic_search(query, k=k)
         return {"mode": "rag", "products": [p for _, p in hits]}
+
+    def search(self, query: str, locale: str, top_k: int = 5) -> List[Dict[str, Any]]:
+        """
+        For product_search.py integration.
+        Returns [{"id": "...", "score": 0.95}, ...]
+        """
+        hits = self.semantic_search(query, k=top_k)
+        out = []
+        for score, p in hits:
+            out.append({"id": p.get("id"), "score": score})
+        return out
+
+
+# Singleton management
+_rag_instance: Optional[ProductRAG] = None
+
+def init_product_rag(products: List[Dict[str, Any]], embedder: EmbeddingsClient) -> ProductRAG:
+    global _rag_instance
+    if _rag_instance is None:
+        _rag_instance = ProductRAG(products, embedder)
+    return _rag_instance
+
+def get_product_rag() -> ProductRAG:
+    global _rag_instance
+    if _rag_instance is None:
+        raise RuntimeError("ProductRAG not initialized. Call init_product_rag first.")
+    return _rag_instance

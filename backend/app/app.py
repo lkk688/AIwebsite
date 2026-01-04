@@ -22,6 +22,12 @@ def setup_logging():
         level=level,
         format="%(asctime)s %(levelname)s %(name)s - %(message)s",
     )
+    # Silence noisy libraries
+    logging.getLogger("openai").setLevel(logging.WARNING)
+    logging.getLogger("httpcore").setLevel(logging.WARNING)
+    logging.getLogger("httpx").setLevel(logging.WARNING)
+    logging.getLogger("botocore").setLevel(logging.WARNING)
+    logging.getLogger("urllib3").setLevel(logging.WARNING)
 
 setup_logging()
 logger = logging.getLogger("jwl.api")
@@ -357,21 +363,29 @@ def to_llm_messages(req: ChatRequest) -> List[Dict[str, Any]]:
     # 1) Build system prompt
     sys = build_system_prompt(req.locale)
 
-    # 2) Build dynamic product context (simple JSON scan based on last user message)
-    last_user = ""
-    for m in reversed(req.messages):
-        if m.role in ("user",) or m.role not in ("assistant", "bot", "system"):
-            last_user = m.text
-            break
+    # 2) Build dynamic product context (Retrieval based on conversation history)
+    # Strategy: Use a sliding window of the last N user messages to preserve context.
+    # This handles cases like "Yes", "Show me more", "The red one" by including the previous substantive queries.
+    user_msgs = [m for m in req.messages if m.role in ("user",) or m.role not in ("assistant", "bot", "system")]
+    
+    rag_query = ""
+    if user_msgs:
+        # Take last 3 messages to form the search context
+        recent_msgs = user_msgs[-3:] 
+        rag_query = " ".join([m.text for m in recent_msgs])
+        
+        # Optional: Truncate if too long to avoid token limits or noise
+        if len(rag_query) > 800:
+            rag_query = rag_query[-800:]
 
     #prod_ctx = build_product_context(store.products, last_user, req.locale, limit=3)
     #Use RAG
     # 1) RAG 检索
-    rag_info = build_rag_context(query=last_user, locale=req.locale, k=5)
+    rag_info = build_rag_context(query=rag_query, locale=req.locale, k=5)
     prod_ctx = rag_info["context"]  # 已经是 string
 
     # 2) 公司信息（只在关键词触发时注入）
-    comp_ctx = build_company_context(last_user, req.locale)
+    comp_ctx = build_company_context(rag_query, req.locale)
 
     # 3) 拼接 system content（把产品放在最后，最靠近用户问题）
     ctx_parts = []
@@ -478,7 +492,9 @@ async def products_search(
         q, 
         locale=locale, 
         limit=limit,
-        semantic=settings.enable_semantic_search
+        semantic=settings.enable_semantic_search,
+        lexical_min_score=settings.lexical_min_score_threshold,
+        semantic_min_score=settings.semantic_min_score_threshold
     )
     return {"query": q, "count": len(results), "results": results}
 
@@ -611,6 +627,10 @@ async def chat_stream(req: ChatRequest):
     messages = to_llm_messages(req)
     tools = llm.tools() if req.allow_actions else []  # ✅ 和 /api/chat 对齐
 
+    # Log Input
+    user_input = req.messages[-1].text if req.messages else ""
+    logger.info(f"CHAT_STREAM START | Input: '{user_input}' | Tools: {len(tools)} | Locale: {req.locale}")
+
     def sse(payload: dict):
         return f"data: {json.dumps(payload, ensure_ascii=False)}\n\n".encode("utf-8")
 
@@ -619,6 +639,10 @@ async def chat_stream(req: ChatRequest):
         assistant_text_chunks = []
 
         try:
+            # Log full prompt for debugging RAG/Hallucinations
+            logger.info(f"CHAT_STREAM PROMPT | Messages: {json.dumps(messages, ensure_ascii=False)}")
+            
+            logger.info("CHAT_STREAM LLM | Connecting to model...")
             for ev in llm.stream(messages=messages, tools=tools, temperature=0.6):
                 t = ev.get("type")
 
@@ -628,6 +652,7 @@ async def chat_stream(req: ChatRequest):
 
                 elif t == "tool_call":
                     pending_tool = ev
+                    logger.info(f"CHAT_STREAM TOOL_DETECTED | Name: {ev.get('name')} | Args: {ev.get('arguments')}")
                     yield sse({
                         "type": "tool_call",
                         "name": ev.get("name"),
@@ -637,7 +662,10 @@ async def chat_stream(req: ChatRequest):
                 elif t == "done":
                     # ✅ 统一在 done 时输出 final（确保用户看到结果）
                     if pending_tool and pending_tool.get("name") == "send_inquiry":
+                        logger.info(f"CHAT_STREAM TOOL_EXEC | Action: send_inquiry")
+                        
                         if not req.allow_actions:
+                            logger.info("CHAT_STREAM TOOL_SKIP | Reason: allow_actions=False")
                             final_text = "如需发送邮件，请点击确认并提供姓名/邮箱/留言内容。" if req.locale == "zh" \
                                 else "To send an email, please confirm and provide name/email/message."
                             yield sse({"type": "final", "text": final_text})
@@ -650,6 +678,7 @@ async def chat_stream(req: ChatRequest):
                         message = args.get("message")
 
                         if not (name and email and message):
+                            logger.info("CHAT_STREAM TOOL_SKIP | Reason: Missing fields")
                             final_text = "信息不全：需要 name/email/message 才能发送。" if req.locale == "zh" \
                                 else "Missing fields: name/email/message are required."
                             yield sse({"type": "final", "text": final_text})
@@ -666,6 +695,7 @@ async def chat_stream(req: ChatRequest):
                         )
 
                         if send_result["ok"]:
+                            logger.info(f"CHAT_STREAM TOOL_SUCCESS | InquiryID: {send_result['inquiry_id']}")
                             final_text = "已发送给我们的团队，我们会尽快联系你。" if req.locale == "zh" \
                                 else "Sent to our team. We’ll get back to you shortly."
                             yield sse({
@@ -675,6 +705,7 @@ async def chat_stream(req: ChatRequest):
                                 "action_data": {"inquiry_id": send_result["inquiry_id"], "ses": send_result["ses"]},
                             })
                         else:
+                            logger.error(f"CHAT_STREAM TOOL_FAIL | Error: {send_result['error']}")
                             final_text = (
                                 "邮件发送失败（我们已记录你的信息）。请稍后再试，或直接通过网站联系方式联系我们。\n"
                                 f"错误信息：{send_result['error']}"
@@ -693,16 +724,18 @@ async def chat_stream(req: ChatRequest):
                         return
 
                     # 没 tool call
-                    yield sse({"type": "final", "text": "".join(assistant_text_chunks).strip()})
+                    final_response = "".join(assistant_text_chunks).strip()
+                    logger.info(f"CHAT_STREAM COMPLETE | Response: '{final_response[:100]}...'")
+                    yield sse({"type": "final", "text": final_response})
                     yield sse({"type": "done"})
                     return
 
         except GeneratorExit:
             # ✅ 客户端断开会触发；别当错误
-            logger.warning("SSE client disconnected (GeneratorExit)")
+            logger.warning("CHAT_STREAM ABORT | Client disconnected")
             return
         except Exception as e:
-            logger.exception("chat_stream error")
+            logger.exception("CHAT_STREAM ERROR")
             yield sse({"type": "error", "message": str(e)})
             return
 

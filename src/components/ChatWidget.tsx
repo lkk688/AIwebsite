@@ -113,9 +113,46 @@ export default function ChatWidget() {
                             }
                             return newHistory;
                         });
+                    } else if (data.type === 'final' && data.text) {
+                        // "final" event contains the final confirmation text from tool execution
+                        // We should append this to the chat history or replace the last message
+                        // Since 'delta' might have streamed partial text, but 'final' from tool execution often comes AFTER all deltas
+                        // or REPLACES them (e.g. "Sent to our team...").
+                        
+                        // If it's a tool execution result, we usually want to show it.
+                        // Let's append it to fullResponse if it's new, or replace if fullResponse was empty.
+                        if (data.text !== fullResponse) {
+                             fullResponse = data.text; // Replace or Append? Usually replace for tool outputs
+                             setChatHistory(prev => {
+                                const newHistory = [...prev];
+                                const lastMsg = newHistory[newHistory.length - 1];
+                                if (lastMsg.role === 'bot') {
+                                    lastMsg.text = fullResponse;
+                                }
+                                return newHistory;
+                            });
+                        }
+                    } else if (data.type === 'tool_call') {
+                        // For tool_call in SSE, we might receive it but the actual result comes later or in a 'done' event?
+                        // If your backend streaming logic sends "done" with final tool execution result, handle it there.
+                        console.log("Tool call detected:", data.name);
                     } else if (data.type === 'action') {
-                        // Handle actions if needed
+                        // Handle final action result from backend (if you add this to your backend streaming response)
+                        // Currently backend 'chat_stream' might NOT be returning 'action' events properly yet.
+                        // You need to update backend/app/app.py to yield action events.
                         console.log("Action received:", data.action, data.data);
+                    } else if (data.type === 'error') {
+                         const errorMsg = data.message || "Unknown error occurred";
+                         console.error("Backend SSE Error:", errorMsg);
+                         fullResponse = `(Error: ${errorMsg})`;
+                         setChatHistory(prev => {
+                            const newHistory = [...prev];
+                            const lastMsg = newHistory[newHistory.length - 1];
+                            if (lastMsg.role === 'bot') {
+                                lastMsg.text = fullResponse;
+                            }
+                            return newHistory;
+                        });
                     }
                 } catch (e) {
                     console.error("Error parsing SSE data:", e);

@@ -4,17 +4,42 @@ import re
 from dataclasses import dataclass
 from typing import Any, Dict, List, Tuple, Optional
 
+from .settings import settings
+
 # ---------------------------
 # Text helpers
 # ---------------------------
 
 _TOKEN_SPLIT_RE = re.compile(r"[^a-z0-9\u4e00-\u9fff]+")
 
+STOP_WORDS = {
+    "i", "me", "my", "myself", "we", "our", "ours", "ourselves", "you", "your", "yours", 
+    "yourself", "yourselves", "he", "him", "his", "himself", "she", "her", "hers", 
+    "herself", "it", "its", "itself", "they", "them", "their", "theirs", "themselves", 
+    "what", "which", "who", "whom", "this", "that", "these", "those", "am", "is", "are", 
+    "was", "were", "be", "been", "being", "have", "has", "had", "having", "do", "does", 
+    "did", "doing", "a", "an", "the", "and", "but", "if", "or", "because", "as", "until", 
+    "while", "of", "at", "by", "for", "with", "about", "against", "between", "into", 
+    "through", "during", "before", "after", "above", "below", "to", "from", "up", "down", 
+    "in", "out", "on", "off", "over", "under", "again", "further", "then", "once", "here", 
+    "there", "when", "where", "why", "how", "all", "any", "both", "each", "few", "more", 
+    "most", "other", "some", "such", "no", "nor", "not", "only", "own", "same", "so", 
+    "than", "too", "very", "s", "t", "can", "will", "just", "don", "should", "now",
+    "want", "would", "like", "need", "looking", "search", "find"
+}
+
+# Domain specific stop words (terms that appear in almost all products)
+# Adding these prevents generic terms from triggering lexical matches for every item.
+DOMAIN_STOP_WORDS = {
+    "bag", "bags", "pack", "packs", "gear", "jwl", "product", "products", "item", "items"
+}
+STOP_WORDS.update(DOMAIN_STOP_WORDS)
 
 def _tokenize(q: str) -> List[str]:
     q = (q or "").lower().strip()
     parts = _TOKEN_SPLIT_RE.split(q)
-    return [p for p in parts if p]
+    # Filter out stop words and single characters (unless they are numbers/kanji)
+    return [p for p in parts if p and p not in STOP_WORDS and (len(p) > 1 or not p.isascii())]
 
 
 def _norm(s: str) -> str:
@@ -71,32 +96,46 @@ def _get_locale_text(obj: Dict[str, Any], key: str, locale: str) -> str:
 
 def score_product_lexical(p: Dict[str, Any], keywords: List[str], locale: str) -> int:
     """
-    Simple lexical scoring: count keyword occurrences in a combined "haystack".
-    (Fast and cheap; good baseline.)
+    Focused lexical scoring: count keyword occurrences primarily in high-value fields.
+    Fields: Name, Category, Tags (High Priority), Description (Low Priority).
     """
-    name = _get_locale_text(p, "name", locale)
-    desc = _get_locale_text(p, "description", locale)
-    category = str(p.get("category", "") or "")
-    tags = " ".join(p.get("tags", []) or [])
-    materials = _get_locale_text(p, "materials", locale)
-    specs = _get_locale_text(p, "specifications", locale)
-
-    # include id/slug as well for exact-ish matching
-    pid = str(p.get("id", "") or "")
-    slug = str(p.get("slug", "") or "")
-
-    hay = f"{pid} {slug} {name} {desc} {category} {tags} {materials} {specs}".lower()
-
+    name = _get_locale_text(p, "name", locale).lower()
+    category = str(p.get("category", "") or "").lower()
+    tags = " ".join(p.get("tags", []) or []).lower()
+    
+    # Description - often too verbose, so we might want to check it but weight it less
+    # or exclude it if we want strict matching. 
+    # Current optimization request: "limit the lexical match to only title, categories and tags"
+    # So we will exclude description from the main "haystack" or score it separately.
+    
+    # High priority haystack
+    hay_high = f"{name} {category} {tags}"
+    
+    # ID/Slug are also high priority for exact lookups
+    pid = str(p.get("id", "") or "").lower()
+    slug = str(p.get("slug", "") or "").lower()
+    
     s = 0
     for kw in keywords:
-        if kw and kw in hay:
-            s += 1
-
-    # small bonus if keyword hits name
-    name_l = name.lower()
-    for kw in keywords:
-        if kw and kw in name_l:
-            s += 1
+        if not kw: 
+            continue
+            
+        # 1. Check high-value fields (Score +1)
+        if kw in hay_high or kw in pid or kw in slug:
+            
+            # Bonus: if it's in the name/category/tags specifically (double counting effectively, but emphasizes relevance)
+            if kw in name:
+                s += 2 # Stronger signal for name
+            if kw in category:
+                s += 3 # Very strong signal if it matches category
+            if kw in tags:
+                s += 2 # Strong signal if it matches tags
+            
+            # Base match score (only if we haven't already added significant points)
+            if s == 0:
+                s += 1
+            elif s == 0 and (kw in pid or kw in slug):
+                s += 1
 
     return s
 
@@ -179,18 +218,20 @@ def search_products(
     *,
     semantic: bool = False,
     semantic_top_k: Optional[int] = None,
-    semantic_min_score: float = 0.0,
+    semantic_min_score: float = 0.25,
+    lexical_min_score: float = 1.0,
     hybrid_alpha: float = 0.35,
 ) -> List[Dict[str, Any]]:
     """
     Search products by keyword (lexical) and optionally semantic search.
 
-    Backward-compatible defaults:
-      - semantic=False -> only lexical
-      - return format matches your current UI needs
-
-    Hybrid scoring:
-      final_score = lexical_score + int(alpha * semantic_score * 100)
+    Filtering Logic:
+      - If semantic=False: Return items with lexical_score >= lexical_min_score.
+      - If semantic=True: Return items with lexical_score >= lexical_min_score OR semantic_score >= semantic_min_score.
+    
+    Scores:
+      - Lexical: token count + exact match boost.
+      - Semantic: cosine similarity (0-1).
     """
     q = (query or "").strip()
     if not q:
@@ -199,6 +240,7 @@ def search_products(
     keywords = _tokenize(q)
 
     # 1) Lexical scores
+    # list of (final_lex_score, product, raw_lex, boost)
     lexical_scored: List[Tuple[float, Dict[str, Any], int, int]] = []
     for p in products:
         lex = score_product_lexical(p, keywords, locale) if keywords else 0
@@ -207,19 +249,78 @@ def search_products(
         if final_lex > 0:
             lexical_scored.append((float(final_lex), p, lex, boost))
 
-    # Sort lexical
+    # Sort lexical descending
     lexical_scored.sort(key=lambda x: x[0], reverse=True)
 
-    # If semantic disabled, return lexical top
-    if not semantic:
-        return _format_results(lexical_scored[:limit], locale)
+    # Dynamic Semantic Logic:
+    # If we have "good enough" lexical matches, skip semantic search to save cost/latency.
+    # Criteria for "good enough":
+    # 1. We have at least 'limit' number of lexical matches.
+    # 2. The top matches have a high score (e.g. >= 2.0, meaning multiple keyword hits).
+    # 3. The query is short (likely a specific keyword search like "backpack").
+    
+    should_run_semantic = semantic
+    
+    if semantic:
+        high_quality_lexical_count = sum(1 for x in lexical_scored if x[0] >= 2.0)
+        # Use number of valid keywords after stop-word removal to decide if it is a short query
+        is_short_query = len(keywords) < 2
+        
+        # If we have many high-quality matches and it's a short keyword query, skip semantic
+        if high_quality_lexical_count >= 5 and is_short_query:
+             print(f"DEBUG: [Optimization] Skipping semantic search. Found {high_quality_lexical_count} strong lexical matches for short query '{q}' (keywords={keywords}).")
+             should_run_semantic = False
+    
+    # If semantic disabled (either by config or dynamic logic), filter by lexical threshold only
+    if not should_run_semantic:
+        print(f"DEBUG: [Lexical Only] Query='{q}' limit={limit} lex_min={lexical_min_score}")
+        filtered_lex = []
+        for score, p, lex, boost in lexical_scored:
+            if score >= lexical_min_score:
+                # Debug why we got this score
+                name = _get_locale_text(p, "name", locale).lower()
+                category = str(p.get("category", "") or "").lower()
+                tags = " ".join(p.get("tags", []) or []).lower()
+                matched_field = []
+                for kw in keywords:
+                    if kw in name: matched_field.append("NAME")
+                    if kw in category: matched_field.append("CAT")
+                    if kw in tags: matched_field.append("TAG")
+                
+                print(f"DEBUG: MATCH [Lexical] id={p.get('id')} score={score} (lex={lex} boost={boost}) why={matched_field}")
+                filtered_lex.append((score, p, lex, boost))
+            else:
+                print(f"DEBUG: DROP  [Lexical] id={p.get('id')} score={score} < {lexical_min_score}")
+        
+        return _format_results(filtered_lex[:limit], locale)
 
     # 2) Semantic search (topK ids + score)
+    # Optimization: Filter out domain stop words from the query before sending to embedding model
+    # This prevents the embedding from being skewed by generic terms like "bag" or "product"
+    
+    # Reconstruct query from valid tokens (which already exclude STOP_WORDS and DOMAIN_STOP_WORDS)
+    # But we might want to keep some structure. 
+    # _tokenize filters out everything. Let's try a simpler approach:
+    # Remove only the words in DOMAIN_STOP_WORDS from the original query string for the semantic search.
+    
+    semantic_query = q
+    if semantic:
+        # Split by space to check words, case insensitive
+        query_parts = q.split()
+        # Filter out both generic STOP_WORDS and DOMAIN_STOP_WORDS (STOP_WORDS includes DOMAIN_STOP_WORDS)
+        filtered_parts = [w for w in query_parts if w.lower() not in STOP_WORDS]
+        if filtered_parts:
+            semantic_query = " ".join(filtered_parts)
+            print(f"DEBUG: [Semantic Optimization] Original='{q}' -> Optimized='{semantic_query}'")
+        else:
+            # If everything was filtered out (e.g. user just typed "bags"), keep original
+            semantic_query = q
+
     top_k = semantic_top_k or max(limit * 3, 12)  # fetch more for better hybrid merge
-    sem_hits = _semantic_search_ids(query=q, locale=locale, top_k=top_k)
+    sem_hits = _semantic_search_ids(query=semantic_query, locale=locale, top_k=top_k)
 
     # Map id -> semantic score
-    sem_map: Dict[str, float] = {h.id: h.score for h in sem_hits if h.score >= semantic_min_score}
+    sem_map: Dict[str, float] = {h.id: h.score for h in sem_hits}
 
     # 3) Hybrid merge
     # Build a map of product by id for fast lookup
@@ -229,12 +330,13 @@ def search_products(
         if pid:
             by_id[pid] = p
 
-    # Start with lexical candidates (keep their detailed breakdown)
+    # Start with lexical candidates
     merged: Dict[str, Dict[str, Any]] = {}
 
     for final_lex, p, lex, boost in lexical_scored:
         pid = str(p.get("id") or "")
         ssem = sem_map.get(pid, 0.0)
+        # Hybrid score for sorting (matches previous formula to keep sorting consistent)
         hybrid = float(final_lex) + float(hybrid_alpha) * float(ssem) * 100.0
         merged[pid] = {
             "p": p,
@@ -242,6 +344,7 @@ def search_products(
             "lex": float(lex),
             "boost": float(boost),
             "sem": float(ssem),
+            "lex_total": float(final_lex)
         }
 
     # Add semantic-only hits not present in lexical
@@ -259,43 +362,72 @@ def search_products(
             "lex": 0.0,
             "boost": float(boost),
             "sem": float(ssem),
+            "lex_total": float(boost)
         }
 
     # Sort by hybrid score
-    merged_list = sorted(merged.values(), key=lambda x: x["hybrid"], reverse=True)[:limit]
+    merged_list = sorted(merged.values(), key=lambda x: x["hybrid"], reverse=True)
 
     # Filter out low-score results
-    # 1. If lexical score > 0 (keyword match), we almost always keep it (threshold 1.0).
-    # 2. If semantic only, hybrid score = alpha * sem * 100.
-    #    alpha=0.35. A "good" match often has cosine similarity > 0.4-0.5.
-    #    0.35 * 0.4 * 100 = 14.0.
-    #    0.35 * 0.5 * 100 = 17.5.
-    #    0.35 * 0.6 * 100 = 21.0.
-    # Let's set a stricter threshold for pure semantic matches, e.g., 18.0 (~0.51 similarity).
-    # This prevents weak semantic associations from cluttering results.
-    
     filtered_list = []
-    print(f"DEBUG: Search query='{q}' limit={limit}")
-    for item in merged_list:
-        lex = item["lex"]
-        boost = item["boost"]
-        hybrid = item["hybrid"]
-        
-        print(f"DEBUG: id={item['p'].get('id')} lex={lex} boost={boost} hybrid={hybrid} sem={item['sem']}")
+    print(f"DEBUG: [Hybrid Search] Query='{q}' limit={limit}")
+    print(f"DEBUG: Thresholds -> Lexical >= {lexical_min_score} OR Semantic >= {semantic_min_score}")
 
-        # If we have keyword match or exact match boost, keep it (score will be >= 1)
-        if lex > 0 or boost > 0:
+    for item in merged_list:
+        lex_total = item["lex_total"]
+        sem_score = item["sem"]
+        pid = item['p'].get('id')
+        
+        is_lexical_pass = lex_total >= lexical_min_score
+        is_semantic_pass = sem_score >= semantic_min_score
+        
+        # Decide match type for logging
+        match_type = "NONE"
+        if is_lexical_pass and is_semantic_pass:
+            match_type = "BOTH"
+        elif is_lexical_pass:
+            match_type = "LEXICAL"
+        elif is_semantic_pass:
+            match_type = "SEMANTIC"
+
+        if is_lexical_pass or is_semantic_pass:
+            print(f"DEBUG: MATCH [{match_type}] id={pid} lex_total={lex_total} sem={sem_score:.4f} hybrid={item['hybrid']:.2f}")
             filtered_list.append(item)
-        # If pure semantic, enforce a stricter threshold
-        elif hybrid > 20.0:
-            filtered_list.append(item)
+        else:
+            print(f"DEBUG: DROP  [Low Score] id={pid} lex_total={lex_total} sem={sem_score:.4f}")
+
+    # Apply limit after filtering
+    final_list = filtered_list[:limit]
 
     # Format
     results: List[Dict[str, Any]] = []
-    for item in filtered_list:
+    for item in final_list:
         p = item["p"]
+        
+        # Calculate relevance tag for UI
+        # Logic: High confidence if lexical score is high (>=threshold) OR semantic score is very high (>= high_rel_threshold)
+        # This allows UI to show "Top Results" first without knowing the scoring details.
+        lex_total = item["lex_total"]
+        sem_score = item["sem"]
+        
+        relevance_threshold = settings.search_relevance_threshold
+        sem_high_rel_threshold = settings.semantic_high_relevance_threshold
+        
+        is_high_confidence = lex_total >= relevance_threshold or sem_score >= sem_high_rel_threshold
+        relevance = "high" if is_high_confidence else "low"
+        
+        # DEBUG: show why it is high or low
+        if is_high_confidence:
+            reason = []
+            if lex_total >= relevance_threshold: reason.append(f"lex({lex_total})>={relevance_threshold}")
+            if sem_score >= sem_high_rel_threshold: reason.append(f"sem({sem_score:.4f})>={sem_high_rel_threshold}")
+            print(f"DEBUG: RELEVANCE [HIGH] id={p.get('id')} reason={', '.join(reason)}")
+        else:
+            print(f"DEBUG: RELEVANCE [LOW]  id={p.get('id')} lex={lex_total} sem={sem_score:.4f}")
+
         results.append({
             "score": round(item["hybrid"], 3),
+            "relevance": relevance,
             "lex_score": round(item["lex"], 3),
             "exact_boost": round(item["boost"], 3),
             "semantic_score": round(item["sem"], 6),
@@ -318,8 +450,20 @@ def _format_results(scored: List[Tuple[float, Dict[str, Any], int, int]], locale
     """
     results: List[Dict[str, Any]] = []
     for final_score, p, lex, boost in scored:
+        
+        # Calculate relevance (Lexical Only Mode)
+        # In lexical-only mode, final_score IS the lex_total.
+        # Threshold matches the logic in hybrid mode for "high confidence".
+        relevance_threshold = settings.search_relevance_threshold
+        is_high_confidence = final_score >= relevance_threshold
+        relevance = "high" if is_high_confidence else "low"
+        
+        # DEBUG: if this item is shown, log its relevance status
+        # print(f"DEBUG: Item {p.get('id')} score={final_score} relevance={relevance}")
+        
         results.append({
             "score": int(final_score),
+            "relevance": relevance,
             "lex_score": int(lex),
             "exact_boost": int(boost),
 

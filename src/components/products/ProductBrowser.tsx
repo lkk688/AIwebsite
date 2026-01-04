@@ -90,6 +90,7 @@ export default function ProductBrowser({ initialCategory }: ProductBrowserProps)
   // Perform API Search
   const performSearch = async (query: string) => {
       setLoading(true);
+      setShowAllResults(false); // Reset "Show More" state on new search
       try {
         let fetchedProducts: Product[] = [];
         if (query.trim()) {
@@ -126,6 +127,7 @@ export default function ProductBrowser({ initialCategory }: ProductBrowserProps)
 
                 return {
                     id: item.id,
+                    relevance: item.relevance, // Pass through relevance score
                     attributes: {
                         name: { en: item.name, zh: item.name }, // Use same string for both as fallback
                         description: { en: item.description, zh: item.description },
@@ -188,7 +190,9 @@ export default function ProductBrowser({ initialCategory }: ProductBrowserProps)
       const matchedCats = Array.from(uniqueCats).filter(c => c.toLowerCase().includes(lowerQ));
       const matchedTags = Array.from(uniqueTags).filter(t => t.toLowerCase().includes(lowerQ));
 
-      const combined = [...matchedCats, ...matchedTags].slice(0, 8); // Limit to 8 suggestions
+      // Use a Set to remove duplicates between categories and tags (e.g., if "Fashion" is both)
+      const uniqueSuggestions = Array.from(new Set([...matchedCats, ...matchedTags]));
+      const combined = uniqueSuggestions.slice(0, 8); // Limit to 8 suggestions
       setSuggestions(combined);
       setShowSuggestions(combined.length > 0);
   };
@@ -213,6 +217,28 @@ export default function ProductBrowser({ initialCategory }: ProductBrowserProps)
         : [...prev, tag]
     );
   };
+
+  const [showAllResults, setShowAllResults] = useState(false);
+
+  // Filter products by score threshold for initial view
+  const displayProducts = useMemo(() => {
+    if (showAllResults) return filteredProducts;
+    
+    // Check if we have relevance flag (API results)
+    const hasRelevance = filteredProducts.some(p => (p as any).relevance !== undefined);
+    
+    if (hasRelevance) {
+      // Only show high relevance items initially
+      const highRelevance = filteredProducts.filter(p => (p as any).relevance === 'high');
+      // If no high relevance items, just show everything (avoid empty screen)
+      return highRelevance.length > 0 ? highRelevance : filteredProducts;
+    }
+    
+    // Fallback for non-search (local) results or legacy API: show all
+    return filteredProducts;
+  }, [filteredProducts, showAllResults]);
+
+  const hiddenCount = filteredProducts.length - displayProducts.length;
 
   if (loading) {
     return (
@@ -281,6 +307,7 @@ export default function ProductBrowser({ initialCategory }: ProductBrowserProps)
                 setSelectedCategory('all');
                 setSearchQuery(''); // Clear search
                 setProducts(allData); // Reset to all products
+                setShowAllResults(false); // Reset show more
             }}
             className={`px-6 py-2 rounded-full text-sm font-bold transition-all ${
               selectedCategory === 'all'
@@ -344,17 +371,37 @@ export default function ProductBrowser({ initialCategory }: ProductBrowserProps)
       </div>
 
       {/* Results Grid */}
-      {filteredProducts.length === 0 ? (
+      {loading ? (
+        <div className="flex justify-center py-20">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        </div>
+      ) : displayProducts.length === 0 ? (
         <div className="text-center py-20 text-gray-500">
           <p className="text-xl font-medium">{t.products.notFound || "No products found"}</p>
           <p className="mt-2">Try adjusting your filters or search query</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {filteredProducts.map((product) => (
-            <ProductCard key={product.id} product={product} category={product.attributes.category} />
-          ))}
-        </div>
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {displayProducts.map((product) => (
+              <ProductCard key={product.id} product={product} category={product.attributes.category} />
+            ))}
+          </div>
+
+          {hiddenCount > 0 && (
+            <div className="flex justify-center mt-8">
+              <button
+                onClick={() => setShowAllResults(true)}
+                className="px-8 py-3 bg-white border border-gray-300 rounded-full text-gray-700 font-semibold hover:bg-gray-50 hover:border-gray-400 transition-all shadow-sm flex items-center gap-2"
+              >
+                <span>{t.products.showMore || "Show More"}</span>
+                <span className="bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full text-xs">
+                  {hiddenCount}
+                </span>
+              </button>
+            </div>
+          )}
+        </>
       )}
     </div>
   );

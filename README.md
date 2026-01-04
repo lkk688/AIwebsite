@@ -571,3 +571,60 @@ Follow the prompts to enable automatic HTTPS redirection.
 1.  Push code to GitHub.
 2.  Import project into Vercel.
 3.  The build settings are pre-configured (`npm run build`).
+
+## Security Enhancement
+Do not commit or add the `.env` file to your repository. Instead, use environment variables on your server. Check whether the `.env` file is already in git: `git log --all -- .env`, if the output is empty, then the file is not committed.
+
+When deployment, create a root read-only env file on your server. 
+```bash
+sudo mkdir -p /etc/mywebsite
+sudo nano /etc/mywebsite/backend.env
+#add content
+sudo chmod 600 /etc/mywebsite/backend.env
+sudo chown root:root /etc/mywebsite/backend.env
+```
+
+systemmd service will refer it: /etc/systemd/system/mywebsite-backend.service：
+```bash
+[Unit]
+Description=MyWebsite FastAPI
+After=network.target
+
+[Service]
+WorkingDirectory=/opt/mywebsite/backend
+EnvironmentFile=/etc/mywebsite/backend.env
+ExecStart=/opt/mywebsite/backend/venv/bin/uvicorn app.app:app --host 127.0.0.1 --port 8000
+Restart=always
+User=www-data
+Group=www-data
+
+[Install]
+WantedBy=multi-user.target
+```
+Then, start
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable --now mywebsite-backend
+```
+
+If using docker-compose deployment:
+```bash
+mkdir -p /opt/mywebsite/secrets
+nano /opt/mywebsite/secrets/backend.env
+chmod 600 /opt/mywebsite/secrets/backend.env
+```
+Add these to docker-compose.yml:
+```bash
+services:
+  api:
+    env_file:
+      - /opt/mywebsite/secrets/backend.env
+```
+
+Exclude the env file during rsync:
+```bash
+rsync -av --delete \
+  --exclude '.env' --exclude '.env.*' \
+  --exclude '__pycache__' --exclude '*.pyc' \
+  backend/ user@server:/opt/mywebsite/backend/
+```

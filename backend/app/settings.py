@@ -52,6 +52,23 @@ class Settings(BaseSettings):
 
     # ---- Features ----
     enable_semantic_search: bool = Field(default=True, alias="ENABLE_SEMANTIC_SEARCH")
+    
+    # Thresholds
+    # Lexical: count of matched keywords + boost. Default 1.0 means at least one match.
+    lexical_min_score_threshold: float = Field(default=1.0, alias="LEXICAL_MIN_SCORE_THRESHOLD")
+    
+    # Semantic: Cosine similarity (0.0 to 1.0). 
+    # 0.25 is a reasonable default for "somewhat relevant". 0.5 is "very relevant".
+    semantic_min_score_threshold: float = Field(default=0.25, alias="SEMANTIC_MIN_SCORE_THRESHOLD")
+    
+    # High Relevance Semantic Threshold: Cosine similarity (0.0 to 1.0).
+    # Items with semantic score above this are considered "High Relevance" (shown initially).
+    # Default 0.45 corresponds to a strong semantic match.
+    semantic_high_relevance_threshold: float = Field(default=0.45, alias="SEMANTIC_HIGH_RELEVANCE_THRESHOLD")
+
+    # Relevance threshold for UI "Show More" feature
+    # Items with LEXICAL score >= this value will be marked as "high" relevance
+    search_relevance_threshold: float = Field(default=4.0, alias="SEARCH_RELEVANCE_THRESHOLD")
 
 
 settings = Settings()

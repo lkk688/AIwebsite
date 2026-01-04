@@ -1,10 +1,51 @@
 from __future__ import annotations
 
 import re
+import json
+import os
 from dataclasses import dataclass
 from typing import Any, Dict, List, Tuple, Optional
 
 from .settings import settings
+
+# ---------------------------
+# Load Configuration
+# ---------------------------
+def load_search_config() -> Dict[str, Any]:
+    # No hardcoded defaults for fields or labels to ensure logic is data-driven.
+    # Minimal fallback structure only to prevent immediate crash if file missing.
+    config = {
+        "stop_words": [],
+        "domain_stop_words": [],
+        "fields": {},
+        "ui_labels": {}
+    }
+    
+    try:
+        # Assuming src/data/search_config.json is relative to backend root or configured data dir
+        
+        # Hardcode fix for testing environment if needed, or rely on correct relative path
+        # In this project structure:
+        # backend/app/product_search.py
+        # src/data/search_config.json
+        # The relative path from app/ is "../../src/data"
+        
+        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__))) # backend/
+        project_root = os.path.dirname(base_dir) # AIwebsite/
+        config_path = os.path.join(project_root, "src", "data", "search_config.json")
+        
+        if os.path.exists(config_path):
+            with open(config_path, "r", encoding="utf-8") as f:
+                loaded = json.load(f)
+                config.update(loaded)
+        else:
+             print(f"WARN: search_config.json not found at {config_path}")
+    except Exception as e:
+        print(f"WARN: Failed to load search_config.json: {e}")
+        
+    return config
+
+SEARCH_CONFIG = load_search_config()
 
 # ---------------------------
 # Text helpers
@@ -12,28 +53,11 @@ from .settings import settings
 
 _TOKEN_SPLIT_RE = re.compile(r"[^a-z0-9\u4e00-\u9fff]+")
 
-STOP_WORDS = {
-    "i", "me", "my", "myself", "we", "our", "ours", "ourselves", "you", "your", "yours", 
-    "yourself", "yourselves", "he", "him", "his", "himself", "she", "her", "hers", 
-    "herself", "it", "its", "itself", "they", "them", "their", "theirs", "themselves", 
-    "what", "which", "who", "whom", "this", "that", "these", "those", "am", "is", "are", 
-    "was", "were", "be", "been", "being", "have", "has", "had", "having", "do", "does", 
-    "did", "doing", "a", "an", "the", "and", "but", "if", "or", "because", "as", "until", 
-    "while", "of", "at", "by", "for", "with", "about", "against", "between", "into", 
-    "through", "during", "before", "after", "above", "below", "to", "from", "up", "down", 
-    "in", "out", "on", "off", "over", "under", "again", "further", "then", "once", "here", 
-    "there", "when", "where", "why", "how", "all", "any", "both", "each", "few", "more", 
-    "most", "other", "some", "such", "no", "nor", "not", "only", "own", "same", "so", 
-    "than", "too", "very", "s", "t", "can", "will", "just", "don", "should", "now",
-    "want", "would", "like", "need", "looking", "search", "find"
-}
-
-# Domain specific stop words (terms that appear in almost all products)
-# Adding these prevents generic terms from triggering lexical matches for every item.
-DOMAIN_STOP_WORDS = {
-    "bag", "bags", "pack", "packs", "gear", "jwl", "product", "products", "item", "items"
-}
+STOP_WORDS = set(SEARCH_CONFIG.get("stop_words", []))
+DOMAIN_STOP_WORDS = set(SEARCH_CONFIG.get("domain_stop_words", []))
 STOP_WORDS.update(DOMAIN_STOP_WORDS)
+
+FIELD_MAP = SEARCH_CONFIG.get("fields", {})
 
 def _tokenize(q: str) -> List[str]:
     q = (q or "").lower().strip()
@@ -99,9 +123,16 @@ def score_product_lexical(p: Dict[str, Any], keywords: List[str], locale: str) -
     Focused lexical scoring: count keyword occurrences primarily in high-value fields.
     Fields: Name, Category, Tags (High Priority), Description (Low Priority).
     """
-    name = _get_locale_text(p, "name", locale).lower()
-    category = str(p.get("category", "") or "").lower()
-    tags = " ".join(p.get("tags", []) or []).lower()
+    # Use configurable field names with safe defaults
+    f_name = FIELD_MAP.get("name", "name")
+    f_cat = FIELD_MAP.get("category", "category")
+    f_tags = FIELD_MAP.get("tags", "tags")
+    f_id = FIELD_MAP.get("id", "id")
+    f_slug = FIELD_MAP.get("slug", "slug")
+
+    name = _get_locale_text(p, f_name, locale).lower()
+    category = str(p.get(f_cat, "") or "").lower()
+    tags = " ".join(p.get(f_tags, []) or []).lower()
     
     # Description - often too verbose, so we might want to check it but weight it less
     # or exclude it if we want strict matching. 
@@ -112,8 +143,8 @@ def score_product_lexical(p: Dict[str, Any], keywords: List[str], locale: str) -
     hay_high = f"{name} {category} {tags}"
     
     # ID/Slug are also high priority for exact lookups
-    pid = str(p.get("id", "") or "").lower()
-    slug = str(p.get("slug", "") or "").lower()
+    pid = str(p.get(f_id, "") or "").lower()
+    slug = str(p.get(f_slug, "") or "").lower()
     
     s = 0
     for kw in keywords:
@@ -148,11 +179,16 @@ def exact_match_boost(p: Dict[str, Any], query: str, locale: str) -> int:
       - name substring
     apply a big boost so it ranks at top.
     """
+    # Use configurable field names with safe defaults
+    f_name = FIELD_MAP.get("name", "name")
+    f_id = FIELD_MAP.get("id", "id")
+    f_slug = FIELD_MAP.get("slug", "slug")
+
     qn = _norm(query)
 
-    pid = _norm(str(p.get("id", "") or ""))
-    slug = _norm(str(p.get("slug", "") or ""))
-    name = _norm(_get_locale_text(p, "name", locale))
+    pid = _norm(str(p.get(f_id, "") or ""))
+    slug = _norm(str(p.get(f_slug, "") or ""))
+    name = _norm(_get_locale_text(p, f_name, locale))
 
     boost = 0
     if pid and pid in qn:
@@ -167,7 +203,8 @@ def exact_match_boost(p: Dict[str, Any], query: str, locale: str) -> int:
 
 
 def _product_image_url(p: Dict[str, Any]) -> Optional[str]:
-    asset_dir = p.get("assetDir")
+    f_asset = FIELD_MAP.get("assetDir", "assetDir")
+    asset_dir = p.get(f_asset)
     if not asset_dir:
         return None
     return f"/images/products/{asset_dir}/1_thumb.webp"
@@ -325,8 +362,9 @@ def search_products(
     # 3) Hybrid merge
     # Build a map of product by id for fast lookup
     by_id: Dict[str, Dict[str, Any]] = {}
+    f_id = FIELD_MAP.get("id", "id")
     for p in products:
-        pid = str(p.get("id") or "")
+        pid = str(p.get(f_id) or "")
         if pid:
             by_id[pid] = p
 
@@ -334,7 +372,7 @@ def search_products(
     merged: Dict[str, Dict[str, Any]] = {}
 
     for final_lex, p, lex, boost in lexical_scored:
-        pid = str(p.get("id") or "")
+        pid = str(p.get(f_id) or "")
         ssem = sem_map.get(pid, 0.0)
         # Hybrid score for sorting (matches previous formula to keep sorting consistent)
         hybrid = float(final_lex) + float(hybrid_alpha) * float(ssem) * 100.0
@@ -376,7 +414,7 @@ def search_products(
     for item in merged_list:
         lex_total = item["lex_total"]
         sem_score = item["sem"]
-        pid = item['p'].get('id')
+        pid = item['p'].get(f_id)
         
         is_lexical_pass = lex_total >= lexical_min_score
         is_semantic_pass = sem_score >= semantic_min_score
@@ -401,6 +439,16 @@ def search_products(
 
     # Format
     results: List[Dict[str, Any]] = []
+    
+    # Use configurable field names
+    f_name = FIELD_MAP.get("name", "name")
+    f_cat = FIELD_MAP.get("category", "category")
+    f_tags = FIELD_MAP.get("tags", "tags")
+    f_id = FIELD_MAP.get("id", "id")
+    f_slug = FIELD_MAP.get("slug", "slug")
+    f_desc = FIELD_MAP.get("description", "description")
+    f_asset = FIELD_MAP.get("assetDir", "assetDir")
+
     for item in final_list:
         p = item["p"]
         
@@ -421,9 +469,9 @@ def search_products(
             reason = []
             if lex_total >= relevance_threshold: reason.append(f"lex({lex_total})>={relevance_threshold}")
             if sem_score >= sem_high_rel_threshold: reason.append(f"sem({sem_score:.4f})>={sem_high_rel_threshold}")
-            print(f"DEBUG: RELEVANCE [HIGH] id={p.get('id')} reason={', '.join(reason)}")
+            print(f"DEBUG: RELEVANCE [HIGH] id={p.get(f_id)} reason={', '.join(reason)}")
         else:
-            print(f"DEBUG: RELEVANCE [LOW]  id={p.get('id')} lex={lex_total} sem={sem_score:.4f}")
+            print(f"DEBUG: RELEVANCE [LOW]  id={p.get(f_id)} lex={lex_total} sem={sem_score:.4f}")
 
         results.append({
             "score": round(item["hybrid"], 3),
@@ -432,13 +480,13 @@ def search_products(
             "exact_boost": round(item["boost"], 3),
             "semantic_score": round(item["sem"], 6),
 
-            "id": p.get("id"),
-            "slug": p.get("slug"),
-            "category": p.get("category"),
-            "tags": p.get("tags", []),
-            "name": _get_locale_text(p, "name", locale),
-            "description": _get_locale_text(p, "description", locale)[:220],
-            "assetDir": p.get("assetDir"),
+            "id": p.get(f_id),
+            "slug": p.get(f_slug),
+            "category": p.get(f_cat),
+            "tags": p.get(f_tags, []),
+            "name": _get_locale_text(p, f_name, locale),
+            "description": _get_locale_text(p, f_desc, locale)[:220],
+            "assetDir": p.get(f_asset),
             "image": _product_image_url(p),
         })
     return results
@@ -448,6 +496,15 @@ def _format_results(scored: List[Tuple[float, Dict[str, Any], int, int]], locale
     """
     Format lexical-only results into the same schema your UI already expects.
     """
+    # Use configurable field names
+    f_name = FIELD_MAP.get("name", "name")
+    f_cat = FIELD_MAP.get("category", "category")
+    f_tags = FIELD_MAP.get("tags", "tags")
+    f_id = FIELD_MAP.get("id", "id")
+    f_slug = FIELD_MAP.get("slug", "slug")
+    f_desc = FIELD_MAP.get("description", "description")
+    f_asset = FIELD_MAP.get("assetDir", "assetDir")
+
     results: List[Dict[str, Any]] = []
     for final_score, p, lex, boost in scored:
         
@@ -459,7 +516,7 @@ def _format_results(scored: List[Tuple[float, Dict[str, Any], int, int]], locale
         relevance = "high" if is_high_confidence else "low"
         
         # DEBUG: if this item is shown, log its relevance status
-        # print(f"DEBUG: Item {p.get('id')} score={final_score} relevance={relevance}")
+        # print(f"DEBUG: Item {p.get(f_id)} score={final_score} relevance={relevance}")
         
         results.append({
             "score": int(final_score),
@@ -467,13 +524,13 @@ def _format_results(scored: List[Tuple[float, Dict[str, Any], int, int]], locale
             "lex_score": int(lex),
             "exact_boost": int(boost),
 
-            "id": p.get("id"),
-            "slug": p.get("slug"),
-            "category": p.get("category"),
-            "tags": p.get("tags", []),
-            "name": _get_locale_text(p, "name", locale),
-            "description": _get_locale_text(p, "description", locale)[:220],
-            "assetDir": p.get("assetDir"),
+            "id": p.get(f_id),
+            "slug": p.get(f_slug),
+            "category": p.get(f_cat),
+            "tags": p.get(f_tags, []),
+            "name": _get_locale_text(p, f_name, locale),
+            "description": _get_locale_text(p, f_desc, locale)[:220],
+            "assetDir": p.get(f_asset),
             "image": _product_image_url(p),
         })
     return results
@@ -488,12 +545,30 @@ def build_product_context(products: List[Dict[str, Any]], query: str, locale: st
     if not hits:
         return ""
 
+    # Use configurable field names
+    f_name = FIELD_MAP.get("name", "name")
+    f_cat = FIELD_MAP.get("category", "category")
+    f_tags = FIELD_MAP.get("tags", "tags")
+    f_id = FIELD_MAP.get("id", "id")
+    f_slug = FIELD_MAP.get("slug", "slug")
+    f_desc = FIELD_MAP.get("description", "description")
+
+    # Load UI labels from config
+    labels = SEARCH_CONFIG.get("ui_labels", {}).get(locale, SEARCH_CONFIG.get("ui_labels", {}).get("en", {}))
+    title = labels.get("top_products", "[Top Products]")
+    hint = labels.get("choose_relevant", "Choose the most relevant product(s) below and cite id/slug.")
+
     lines = []
     for h in hits:
+        # Since h is already formatted in search_products using _get_locale_text, 
+        # keys like 'name' and 'description' are already strings. 
+        # BUT 'id', 'slug', 'category', 'tags' are direct from product dict usually.
+        # Let's check search_products return structure.
+        # It returns a new dict with keys: id, slug, category, tags, name, description, etc.
+        # So we can just use those keys directly.
+        
         pid = h.get("id", "")
         slug = h.get("slug", "")
         lines.append(f"- id={pid} slug={slug} name={h['name']}\n  category={h.get('category','')} tags={h.get('tags',[])}\n  desc={h.get('description','')}")
 
-    title = "[Top Products]" if locale != "zh" else "[相关产品 Top]"
-    hint = "Choose the most relevant product(s) below and cite id/slug." if locale != "zh" else "请从下面选择最相关的产品，并引用 id/slug。"
     return f"{title}\n{hint}\n\n" + "\n\n".join(lines)

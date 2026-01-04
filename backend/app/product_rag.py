@@ -8,6 +8,9 @@ from .embeddings_client import EmbeddingsClient
 from .db import sha256_text, get_cached_product_embedding, upsert_product_embedding
 import time
 import logging
+
+__all__ = ["ProductRAG", "init_product_rag", "get_product_rag", "build_rag_context"]
+
 logger = logging.getLogger("jwl.rag")
 
 # def _norm(s: str) -> str:
@@ -296,3 +299,41 @@ def get_product_rag() -> ProductRAG:
     if _rag_instance is None:
         raise RuntimeError("ProductRAG not initialized. Call init_product_rag first.")
     return _rag_instance
+
+def build_rag_context(query: str, locale: str, k: int = 5) -> Dict[str, Any]:
+    """
+    Standalone function to get RAG context string for LLM injection.
+    """
+    rag = get_product_rag()
+    ret = rag.retrieve(query, locale, k=k)
+    mode = ret["mode"]
+    hits = ret["products"]
+    
+    # Format hits into string
+    lines = []
+    for h in hits:
+        pid = h.get("id", "")
+        slug = h.get("slug", "")
+        name = _get_locale_text(h, "name", locale)
+        cat = h.get("category", "")
+        tags = h.get("tags", [])
+        desc = _get_locale_text(h, "description", locale)
+        
+        lines.append(
+            f"- id={pid} slug={slug} name={name}\n"
+            f"  category={cat} tags={tags}\n"
+            f"  desc={desc[:300]}"
+        )
+    
+    if not lines:
+        return {"context": "", "mode": mode, "hits_summary": []}
+
+    title = "[Semantic TopK]" if locale != "zh" else "[语义检索 TopK]"
+    hint = "Choose the most relevant product(s) below and cite id/slug." if locale != "zh" else "请从下面选择最相关的产品，并引用 id/slug。"
+    
+    ctx_str = f"{title}\n{hint}\n\n" + "\n\n".join(lines)
+    
+    # hits summary for logging
+    hits_summary = [{"id": h.get("id"), "slug": h.get("slug"), "name": _get_locale_text(h, "name", locale)} for h in hits]
+    
+    return {"context": ctx_str, "mode": mode, "hits_summary": hits_summary}

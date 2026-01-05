@@ -109,16 +109,6 @@ class ChatService:
 
         return config
 
-    def get_tool_response(self, key: str, locale: str, **kwargs) -> str:
-        responses = self.config.get("tool_responses", {}).get(locale, self.config.get("tool_responses", {}).get("en", {}))
-        text = responses.get(key, "")
-        if kwargs:
-            try:
-                return text.format(**kwargs)
-            except Exception:
-                return text
-        return text
-
     def build_system_prompt(self, locale: str) -> str:
         prompts = self.config.get("system_prompts", {}).get(locale, self.config.get("system_prompts", {}).get("en", {}))
 
@@ -139,7 +129,6 @@ class ChatService:
         """
         try:
             kb = get_kb_rag()
-            # pylint: disable=assignment-from-no-return
             hits = kb.retrieve(query, locale=locale, k=k)
             if not hits:
                 return "", []
@@ -237,32 +226,16 @@ class ChatService:
             prod_k = 2
             kb_k = 3
 
-        # RAG Retrieval
-        rag_info = build_rag_context(query=rag_query, locale=locale, k=prod_k)
-        
+        rag_info = build_rag_context(query=rag_query, locale=locale, k=prod_k, desc_max=120)
         prod_ctx = rag_info.get("context", "")
         rag_mode = rag_info.get("mode", "none")
 
         # refine routing when exact hit
         if rag_mode == "exact":
             # exact product => keep KB minimal unless it's clearly technical
-            # If user wants to order (slots has quantity/product_id or intent), KB is less needed unless for terms.
-            # But "exact" usually means product found.
-            # If intent is "order" or "inquiry" (can detect via regex or slots), we might skip KB if not tech.
-            
-            # Heuristic: if exact match and NOT tech, skip KB to save tokens
-            # (unless we want company info like contact, but that might be in system prompt or KB)
-            if not is_tech:
-                kb_k = 0
-            else:
-                kb_k = 1
+            prod_k = 1
+            kb_k = 1 if not is_tech else 2
 
-        # Additional heuristic: If slots has 'confirm_send' or enough info, reduce KB context to zero to focus on action
-        if slots.get("confirm_send") or (slots.get("name") and slots.get("email") and slots.get("product_id")):
-             # User is close to action, reduce noise
-             kb_k = 0
-             prod_k = 1 # Keep product for reference
-             
         comp_ctx, kb_hits_summary = self.build_company_context(rag_query, locale, k=kb_k)
 
         # ---------- system prompt ----------
@@ -316,21 +289,17 @@ class ChatService:
         try:
             logger.info(
                 "chat_context locale=%s conv_id=%s rag_mode=%s is_broad=%s is_tech=%s\n"
-                "Summary: %s\n"
-                "Slots: %s\n"
                 "Product Hits: %s\nKB Hits: %s\nContext Length: %d",
                 locale,
                 conversation_id,
                 rag_mode,
                 is_broad,
                 is_tech,
-                conv_summary,
-                json.dumps(slots, ensure_ascii=False),
                 json.dumps(rag_info.get("hits_summary", []), ensure_ascii=False),
                 json.dumps(kb_hits_summary, ensure_ascii=False),
                 len(system_content),
             )
         except Exception:
             pass
-            
+
         return llm_messages

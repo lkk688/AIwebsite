@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useChat } from '@/contexts/ChatContext';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { Bot, MessageCircle, Minus, Send, Sparkles, User, X } from 'lucide-react';
+import { Bot, MessageCircle, Minus, Send, Sparkles, User, X, Trash2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -32,9 +32,71 @@ export default function ChatWidget() {
   // Contact Info State
   const [contactInfo, setContactInfo] = useState({ email: '', phone: '' });
   const [showContactForm, setShowContactForm] = useState(false);
+  
+  // Conversation ID for server-side state
+  const conversationIdRef = useRef<string | null>(null);
+
+  // Load persistence
+  useEffect(() => {
+    // 1. Load conversation ID
+    const savedId = localStorage.getItem('chat_conversation_id');
+    if (savedId) {
+        conversationIdRef.current = savedId;
+    } else {
+        // Generate new if missing
+        if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+            conversationIdRef.current = crypto.randomUUID();
+        } else {
+            conversationIdRef.current = Math.random().toString(36).substring(2) + Date.now().toString(36);
+        }
+        localStorage.setItem('chat_conversation_id', conversationIdRef.current);
+    }
+
+    // 2. Load History
+    const savedHistory = localStorage.getItem('chat_history');
+    if (savedHistory) {
+        try {
+            const parsed = JSON.parse(savedHistory);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+                setChatHistory(parsed);
+            }
+        } catch (e) {
+            console.error("Failed to parse chat history", e);
+        }
+    }
+  }, []);
+
+  // Save history on change
+  useEffect(() => {
+    if (chatHistory.length > 0) {
+        // Don't save if it's just the default initial greeting (optional check, but good to avoid overwriting real history with default if logic races)
+        // Actually, we want to save whatever is current state.
+        localStorage.setItem('chat_history', JSON.stringify(chatHistory));
+    }
+  }, [chatHistory]);
+
+  const handleClearHistory = () => {
+    // Clear State
+    // @ts-ignore
+    setChatHistory([{ role: 'bot', text: t.chat?.greeting || 'Hello! How can I help you today?' }]);
+    
+    // Clear Local Storage
+    localStorage.removeItem('chat_history');
+    localStorage.removeItem('chat_conversation_id');
+    
+    // Reset Conversation ID
+    if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+        conversationIdRef.current = crypto.randomUUID();
+    } else {
+        conversationIdRef.current = Math.random().toString(36).substring(2) + Date.now().toString(36);
+    }
+    localStorage.setItem('chat_conversation_id', conversationIdRef.current!);
+  };
 
   useEffect(() => {
     // Reset chat history when language changes (optional, but good for consistency)
+    // Only if history is empty/default. If user has history, maybe we shouldn't reset?
+    // Current logic:
     setChatHistory(prev => {
       // Only update the first message if it's the initial greeting
       if (prev.length === 1 && prev[0].role === 'bot') {
@@ -75,6 +137,7 @@ export default function ChatWidget() {
           // @ts-ignore
           locale: t.nav?.home === '首页' ? 'zh' : 'en',
           allow_actions: true, // Enable actions for stream endpoint if supported or needed
+          conversation_id: conversationIdRef.current,
         }),
       });
 
@@ -247,6 +310,13 @@ export default function ChatWidget() {
                 <h3 className="font-bold">{t.chat?.title || 'JWL Support'}</h3>
               </div>
               <div className="flex gap-2">
+                 <button 
+                    onClick={handleClearHistory} 
+                    className="p-1 hover:bg-white/20 rounded transition-colors"
+                    title="Clear History"
+                 >
+                  <Trash2 size={20} />
+                </button>
                  <button onClick={() => setIsOpen(false)} className="p-1 hover:bg-white/20 rounded transition-colors">
                   <Minus size={20} />
                 </button>

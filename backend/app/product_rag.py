@@ -324,7 +324,7 @@ def build_rag_context(query: str, locale: str, k: int = 5) -> Dict[str, Any]:
         lines.append(
             f"- id={pid} slug={slug} name={name}\n"
             f"  category={cat} tags={tags}\n"
-            f"  desc={desc[:300]}"
+            f"  desc={desc[:settings.desc_max_len]}"
         )
     
     if not lines:

@@ -182,6 +182,7 @@ class ChatRequest(BaseModel):
     locale: str = "en"
     allow_actions: bool = False  # Set to true only after frontend confirmation
     debug: bool = False
+    conversation_id: Optional[str] = None  # UUID for state tracking
 
 class ChatResponse(BaseModel):
     response: str
@@ -282,7 +283,7 @@ async def chat(req: ChatRequest):
     Standard Chat API (Non-streaming).
     Processes user messages, interacts with LLM, and handles tool calls (like sending emails).
     """
-    messages = chat_service.prepare_llm_messages(req.messages, req.locale)
+    messages = chat_service.prepare_llm_messages(req.messages, req.locale, conversation_id=req.conversation_id)
     #tools = llm.tools()
     tools = llm.tools() if req.allow_actions else []
 
@@ -336,7 +337,7 @@ async def chat(req: ChatRequest):
 
 @app.post("/api/chat/stream")
 async def chat_stream(req: ChatRequest):
-    messages = chat_service.prepare_llm_messages(req.messages, req.locale)
+    messages = chat_service.prepare_llm_messages(req.messages, req.locale, conversation_id=req.conversation_id)
     tools = llm.tools() if req.allow_actions else []  # ✅ 和 /api/chat 对齐
 
     # Log Input

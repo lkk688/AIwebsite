@@ -6,6 +6,8 @@ from difflib import SequenceMatcher
 
 from .embeddings_client import EmbeddingsClient
 from .db import sha256_text, get_cached_product_embedding, upsert_product_embedding
+from .vector_index import get_vector_index, VectorIndex
+from .settings import settings
 import time
 import logging
 
@@ -75,13 +77,6 @@ def product_to_doc_text(p: Dict[str, Any]) -> str:
         f"specifications: {specs}",
     ])
 
-def cosine_topk(mat: np.ndarray, q: np.ndarray, k: int) -> List[int]:
-    # mat: (N, D), q: (D,)
-    # cosine sim: (mat·q)/(||mat||*||q||)
-    denom = (np.linalg.norm(mat, axis=1) * (np.linalg.norm(q) + 1e-12) + 1e-12)
-    sims = (mat @ q) / denom
-    idx = np.argsort(-sims)[:k]
-    return idx.tolist()
 
 class ProductRAG:
     def __init__(self, products: List[Dict[str, Any]], embedder: EmbeddingsClient):
@@ -90,6 +85,8 @@ class ProductRAG:
 
         self._doc_texts: List[str] = []
         self._vecs: Optional[np.ndarray] = None
+        self.vector_index: VectorIndex = get_vector_index(settings.vector_index_type)
+        logger.info(f"ProductRAG initialized with {settings.vector_index_type} index")
 
     def build_index(self) -> None:
         t0 = time.time()
@@ -136,6 +133,11 @@ class ProductRAG:
 
         self._vecs = np.array(vecs, dtype=np.float32)
         logger.info("RAG build_index done: shape=%s took=%.2fs", self._vecs.shape, time.time() - t0)
+        
+        # Build Vector Index
+        t2 = time.time()
+        self.vector_index.build(self._vecs)
+        logger.info("Vector index built: type=%s took=%.2fs", settings.vector_index_type, time.time() - t2)
         
     # def build_index(self) -> None:
     #     self._doc_texts = [product_to_doc_text(p) for p in self.products]
@@ -248,16 +250,16 @@ class ProductRAG:
             self.build_index()
 
         qv = np.array(self.embedder.embed([query])[0], dtype=np.float32)
-        idxs = cosine_topk(self._vecs, qv, k=min(k, len(self.products)))
-
-        # 计算分数（可选）
-        mat = self._vecs
-        denom = (np.linalg.norm(mat, axis=1) * (np.linalg.norm(qv) + 1e-12) + 1e-12)
-        sims = (mat @ qv) / denom
-
+        
+        # Use Vector Index
+        scores, indices = self.vector_index.search(qv, top_k=min(k, len(self.products)))
+        
         out = []
-        for i in idxs:
-            out.append((float(sims[i]), self.products[i]))
+        for score, idx in zip(scores, indices):
+            # idx might be int64 or int
+            idx = int(idx)
+            if idx < len(self.products):
+                out.append((float(score), self.products[idx]))
         return out
 
     def retrieve(self, query: str, locale: str, k: int = 5) -> Dict[str, Any]:

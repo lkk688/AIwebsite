@@ -13,6 +13,7 @@ from .llm_client import LLMClient
 from .db import init_db, insert_inquiry, mark_inquiry_sent, mark_inquiry_failed
 from .embeddings_client import EmbeddingsClient
 from .product_rag import init_product_rag
+from .kb_rag import init_kb_rag
 from .chat_service import ChatService
 import logging
 import os
@@ -79,6 +80,7 @@ chat_service = ChatService(store)
 llm = LLMClient()
 embedder = EmbeddingsClient()
 init_product_rag(store.products, embedder)
+init_kb_rag(embedder)
 
 # Initialize SES Mailer
 # Uses boto3 to send emails via AWS SES

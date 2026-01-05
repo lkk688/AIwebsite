@@ -55,6 +55,19 @@ def init_db():
         "CREATE INDEX IF NOT EXISTS idx_product_embeddings_model_hash ON product_embeddings(model, doc_hash);"
     )
 
+    # ✅ 新增：缓存 KB embeddings
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS kb_embeddings (
+            kb_hash TEXT NOT NULL,           -- SHA256 of text
+            model TEXT NOT NULL,
+            embedding_json TEXT NOT NULL,
+            updated_at_utc TEXT NOT NULL,
+            PRIMARY KEY (kb_hash, model)
+        );
+        """
+    )
+
     conn.commit()
     conn.close()
 
@@ -134,6 +147,39 @@ def upsert_product_embedding(product_id: str, model: str, doc_hash: str, embeddi
           updated_at_utc=excluded.updated_at_utc
         """,
         (product_id, model, doc_hash, emb_json, ts),
+    )
+    conn.commit()
+    conn.close()
+
+def get_cached_kb_embedding(kb_hash: str, model: str) -> Optional[List[float]]:
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute(
+        "SELECT embedding_json FROM kb_embeddings WHERE kb_hash=? AND model=?",
+        (kb_hash, model),
+    )
+    row = cur.fetchone()
+    conn.close()
+    if not row:
+        return None
+    try:
+        return json.loads(row[0])
+    except Exception:
+        return None
+
+def upsert_kb_embedding(kb_hash: str, model: str, embedding: List[float]) -> None:
+    conn = get_conn()
+    ts = datetime.now(timezone.utc).isoformat()
+    emb_json = json.dumps(embedding)
+    conn.execute(
+        """
+        INSERT INTO kb_embeddings(kb_hash, model, embedding_json, updated_at_utc)
+        VALUES(?, ?, ?, ?)
+        ON CONFLICT(kb_hash, model) DO UPDATE SET
+          embedding_json=excluded.embedding_json,
+          updated_at_utc=excluded.updated_at_utc
+        """,
+        (kb_hash, model, emb_json, ts),
     )
     conn.commit()
     conn.close()

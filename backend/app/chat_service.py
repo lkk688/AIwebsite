@@ -1,11 +1,12 @@
 import json
 import os
 import logging
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Tuple
 
 from .settings import settings
 # pylint: disable=no-name-in-module
 from .product_rag import build_rag_context
+from .kb_rag import get_kb_rag
 
 logger = logging.getLogger("jwl.chat")
 
@@ -63,31 +64,34 @@ class ChatService:
         
         return f"{role}\n\n{strict}\n\n{general}\n\n{output}"
 
-    def build_company_context(self, query: str, locale: str) -> str:
+    def build_company_context(self, query: str, locale: str) -> Tuple[str, List[Dict[str, Any]]]:
         """
-        Retrieves relevant company information based on keywords.
+        Retrieves relevant company information using Knowledge Base RAG.
+        Returns: (context_string, hits_metadata)
         """
-        q = query.lower()
-        parts = []
-        
-        keywords_config = self.config.get("context_keywords", {})
-        
-        for section, conf in keywords_config.items():
-            keys = conf.get("keys", [])
-            if any(k in q for k in keys):
-                data_source = conf.get("data_source")
-                data_key = conf.get("data_key")
-                
-                data = None
-                if data_source == "website_info":
-                    data = self.store.website_info.get(data_key, {})
-                elif data_source == "certifications":
-                    data = self.store.certifications
-                
-                if data:
-                    parts.append(json.dumps(data, ensure_ascii=False, indent=2))
-
-        return "\n\n".join(parts)
+        try:
+            kb = get_kb_rag()
+            hits = kb.retrieve(query, k=3)
+            
+            if not hits:
+                return "", []
+            
+            parts = []
+            hits_meta = []
+            for hit in hits:
+                parts.append(hit["text"])
+                # Extract simplified metadata for logging
+                meta = hit.get("metadata", {})
+                hits_meta.append({
+                    "source": hit.get("source"),
+                    "score": f"{hit.get('score', 0):.4f}",
+                    "text_preview": hit.get("text", "")[:50] + "..."
+                })
+            
+            return "\n---\n".join(parts), hits_meta
+        except Exception as e:
+            logger.error(f"KB RAG retrieval failed: {e}")
+            return "", []
 
     def prepare_llm_messages(self, messages: List[Any], locale: str) -> List[Dict[str, Any]]:
         """
@@ -112,7 +116,7 @@ class ChatService:
         prod_ctx = rag_info["context"]
 
         # Company Context
-        comp_ctx = self.build_company_context(rag_query, locale)
+        comp_ctx, kb_hits_summary = self.build_company_context(rag_query, locale)
 
         # 3) Assemble Context
         ctx_parts = []
@@ -137,11 +141,12 @@ class ChatService:
         # Log for debug
         try:
             logger.info(
-                "chat_context locale=%s rag_mode=%s hit=%s ctx_len=%d",
+                "chat_context locale=%s rag_mode=%s\nProduct Hits: %s\nKB Hits: %s\nContext Length: %d",
                 locale,
                 rag_info.get("mode"),
-                rag_info.get("hits_summary"),
-                len(prod_ctx or ""),
+                json.dumps(rag_info.get("hits_summary"), ensure_ascii=False),
+                json.dumps(kb_hits_summary, ensure_ascii=False),
+                len(system_content) if system_content else 0,
             )
         except Exception:
             pass

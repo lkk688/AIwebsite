@@ -70,5 +70,12 @@ class Settings(BaseSettings):
     # Items with LEXICAL score >= this value will be marked as "high" relevance
     search_relevance_threshold: float = Field(default=4.0, alias="SEARCH_RELEVANCE_THRESHOLD")
 
+    # Vector Index Backend
+    vector_index_type: Literal["numpy", "faiss"] = Field(default="numpy", alias="VECTOR_INDEX_TYPE")
+
+    # Knowledge Base
+    kb_data_dir: str = Field(default="../src/data/kb", alias="KB_DATA_DIR")
+    kb_context_file: str = Field(default="../src/data/websiteinfo.json", alias="KB_CONTEXT_FILE")
+
 
 settings = Settings()

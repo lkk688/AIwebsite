@@ -67,7 +67,12 @@ def handle_send_inquiry(
     # Append product info to message if present
     full_message = message
     if product_id or product_slug:
-        full_message += f"\n\n[Product Context]\nID: {product_id or 'N/A'}\nSlug: {product_slug or 'N/A'}"
+        full_message += "\n\n" + "="*30 + "\n[Related Product Context]\n"
+        if product_id:
+            full_message += f"Product ID: {product_id}\n"
+        if product_slug:
+            full_message += f"Product Slug: {product_slug}\n"
+        full_message += "="*30
     
     # 1. DB Insert
     try:
@@ -79,12 +84,18 @@ def handle_send_inquiry(
             locale=ctx.locale,
             meta={"ua": "backend-tool", "product_id": product_id, "product_slug": product_slug}
         )
+        if hasattr(ctx, "session_logger") and ctx.session_logger:
+            ctx.session_logger.info(f"DB INSERT: Inquiry saved with ID {inquiry_id}")
     except Exception as e:
         logger.error(f"Failed to insert inquiry to DB: {e}")
+        if hasattr(ctx, "session_logger") and ctx.session_logger:
+            ctx.session_logger.error(f"DB INSERT FAILED: {e}")
         return {"ok": False, "error": "Database error"}
 
     # 2. Send Email (if mailer is available)
     if not ctx.mailer:
+        if hasattr(ctx, "session_logger") and ctx.session_logger:
+            ctx.session_logger.warning("EMAIL SEND SKIP: Mailer not configured")
         return {
             "ok": True, 
             "inquiry_id": inquiry_id, 
@@ -96,6 +107,10 @@ def handle_send_inquiry(
         ses_resp = ctx.mailer.send_inquiry(name, email, full_message)
         ses_message_id = ses_resp.get("messageId") if isinstance(ses_resp, dict) else None
         mark_inquiry_sent(inquiry_id, ses_message_id or "")
+        
+        if hasattr(ctx, "session_logger") and ctx.session_logger:
+            ctx.session_logger.info(f"EMAIL SENT: MessageId {ses_message_id}")
+            
         return {
             "ok": True,
             "inquiry_id": inquiry_id,
@@ -105,6 +120,8 @@ def handle_send_inquiry(
     except Exception as e:
         err_msg = str(e)
         logger.error(f"Failed to send SES email: {err_msg}")
+        if hasattr(ctx, "session_logger") and ctx.session_logger:
+            ctx.session_logger.error(f"EMAIL SEND FAILED: {err_msg}")
         mark_inquiry_failed(inquiry_id, err_msg)
         return {
             "ok": False,

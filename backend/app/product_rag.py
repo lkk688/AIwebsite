@@ -371,3 +371,47 @@ def build_rag_context(query: str, locale: str, k: int = 5) -> Dict[str, Any]:
     hits_summary = [{"id": h.get("id"), "slug": h.get("slug"), "name": _get_locale_text(h, "name", locale)} for h in hits]
     
     return {"context": ctx_str, "mode": mode, "hits_summary": hits_summary}
+
+def format_product_context(hits: List[Dict[str, Any]], locale: str, title_override: str = None) -> str:
+    """
+    Helper to format a list of products into context string.
+    """
+    lines = []
+    for h in hits:
+        pid = h.get("id", "")
+        slug = h.get("slug", "")
+        name = _get_locale_text(h, "name", locale)
+        cat = h.get("category", "")
+        tags = h.get("tags", [])
+        desc = _get_locale_text(h, "description", locale)
+        
+        # Include variants info if available
+        variants = h.get("variants", [])
+        variants_info = f"variants_count={len(variants)}"
+        if variants:
+             v_names = []
+             for v in variants[:8]:
+                 val = v.get(locale) or v.get("en") or v.get("name") or v.get("key") or "v"
+                 v_names.append(str(val))
+             variants_info += f" examples={v_names}"
+             if len(variants) > 8:
+                 variants_info += "..."
+
+        lines.append(
+            f"- id={pid} slug={slug} name={name}\n"
+            f"  category={cat} tags={tags}\n"
+            f"  {variants_info}\n"
+            f"  desc={desc[:settings.desc_max_len]}"
+        )
+    
+    if not lines:
+        return ""
+
+    if title_override:
+        title = title_override
+        hint = ""
+    else:
+        title = "[Product Context]" if locale != "zh" else "[产品上下文]"
+        hint = "Focus on this product." if locale != "zh" else "请关注此产品。"
+
+    return f"{title}\n{hint}\n\n" + "\n\n".join(lines)

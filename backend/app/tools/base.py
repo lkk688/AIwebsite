@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Dict, Optional
 
 @dataclass
@@ -12,3 +12,5 @@ class ToolContext:
     locale: str = "en"
     user: Optional[Dict[str, Any]] = None
     settings: Any = None
+    slots: Dict[str, Any] = field(default_factory=dict)
+    session_logger: Any = None

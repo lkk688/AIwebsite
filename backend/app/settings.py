@@ -79,6 +79,9 @@ class Settings(BaseSettings):
     kb_data_dir: str = Field(default="../src/data/kb", alias="KB_DATA_DIR")
     kb_context_file: str = Field(default="../src/data/websiteinfo.json", alias="KB_CONTEXT_FILE")
 
+    # Logging
+    log_dir: str = Field(default="logs/", alias="LOG_DIR")
+
     # Prompt Engineering
     desc_max_len: int = Field(default=150, alias="DESC_MAX_LEN")  # Limit product description length in RAG context
 

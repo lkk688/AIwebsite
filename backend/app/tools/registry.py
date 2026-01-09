@@ -30,6 +30,7 @@ class ToolSpec:
     required_slots: List[str] = field(default_factory=list)
     intents: List[str] = field(default_factory=list)
     enabled: bool = True
+    confirmation_required: bool = False
     handler: Optional[str] = None
     policy: Dict[str, str] = field(default_factory=dict) # {"en": "...", "zh": "..."}
 
@@ -114,12 +115,16 @@ class ToolRegistry:
 
         tools_out: List[Dict[str, Any]] = []
 
+        # Config driven stage gating
+        state_cfg = self.config.get("state_management", {})
+        confirm_slot = state_cfg.get("confirmation_slot", "confirm_send")
+
         for spec in self._tools.values():
             if not spec.enabled:
                 continue
 
-            # stage-based gating: if user is confirming send, keep only send_inquiry
-            if stage == "confirm_send" and spec.name != "send_inquiry":
+            # stage-based gating: if user is confirming send, keep only tools that require confirmation
+            if stage == confirm_slot and not spec.confirmation_required:
                 continue
 
             # slot gating
@@ -137,8 +142,8 @@ class ToolRegistry:
 
             # intent gating
             if intent and spec.intents:
-                # If stage is "confirm_send" and tool is "send_inquiry", we MUST allow it regardless of intent mismatch
-                if stage == "confirm_send" and spec.name == "send_inquiry":
+                # If stage is confirmation and tool requires confirmation, allow it regardless of intent mismatch
+                if stage == confirm_slot and spec.confirmation_required:
                     pass
                 # Relaxed intent match: if intent is "general", allow all tools that support "general"
                 # If intent is specific (e.g. "broad_product"), only allow tools that support it.
@@ -175,6 +180,7 @@ class ToolRegistry:
             # merge: if exists, override fields
             base = tools.get(name)
             enabled = bool(raw.get("enabled", True))
+            confirmation_required = bool(raw.get("confirmation_required", False))
 
             description = raw.get("description")
             if not isinstance(description, dict):
@@ -200,6 +206,7 @@ class ToolRegistry:
                 required_slots=list(required_slots or []),
                 intents=list(intents or []),
                 enabled=enabled,
+                confirmation_required=confirmation_required,
                 handler=handler,
                 policy=policy,
             )

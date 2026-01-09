@@ -91,7 +91,7 @@ class LRUConversationStore:
         self._access_order.append(cid)
 
 
-def update_state_from_messages(state: ConversationState, messages: List[Dict[str, str]]) -> ConversationState:
+def update_state_from_messages(state: ConversationState, messages: List[Dict[str, str]], config: Optional[Dict[str, Any]] = None) -> ConversationState:
     """
     Updates the state with new messages.
     - Appends to recent_turns
@@ -119,9 +119,23 @@ def update_state_from_messages(state: ConversationState, messages: List[Dict[str
     text_combined = " ".join([m.get("text", "") for m in messages if m.get("role") == "user"])
     
     # Extract email
-    email_match = re.search(r"[\w\.-]+@[\w\.-]+\.\w+", text_combined)
-    if email_match:
-        state.slots["email"] = email_match.group(0)
+    # Strategy: 
+    # 1. Look for explicit declaration "email is ..." (High Priority)
+    # 2. Look for any email pattern, take the LAST one (Most recent)
+    
+    # 1. Contextual match (Chinese/English)
+    # Matches: "邮箱是 abc@d.com", "Email: abc@d.com", "My email is abc@d.com"
+    # Using findall to get the LAST occurrence if multiple exist
+    context_pattern = r"(?:邮箱|email|mail)(?:\s*[:：是]\s*|\s+is\s+)([\w\.-]+@[\w\.-]+\.\w+)"
+    context_matches = re.findall(context_pattern, text_combined, re.IGNORECASE)
+    
+    if context_matches:
+        state.slots["email"] = context_matches[-1]
+    else:
+        # 2. Fallback: find all emails and take the last one
+        all_emails = re.findall(r"[\w\.-]+@[\w\.-]+\.\w+", text_combined)
+        if all_emails:
+            state.slots["email"] = all_emails[-1]
         
     # Extract potential name (improved)
     # 1. "Name: X"
@@ -133,7 +147,31 @@ def update_state_from_messages(state: ConversationState, messages: List[Dict[str
         name_match = re.search(r"(?:my name is|i am) ([A-Z][a-zA-Z]+(?: [A-Z][a-zA-Z]+)?)", text_combined, re.IGNORECASE)
         if name_match:
             state.slots["name"] = name_match.group(1)
+            
+    # Extract Product ID (e.g., "ID: jwl-outdoor-018")
+    # Supports "ID: X", "Product ID: X"
+    pid_match = re.search(r"(?:product\s*)?id\s*[:\-]\s*([a-zA-Z0-9\-_]+)", text_combined, re.IGNORECASE)
+    if pid_match:
+        state.slots["product_id"] = pid_match.group(1)
+        # Assuming ID is also the slug for now, or we can leave slug empty
+        if not state.slots.get("product_slug"):
+            state.slots["product_slug"] = pid_match.group(1)
         
+    # Get config for state management
+    state_cfg = (config or {}).get("state_management", {})
+    confirm_slot = state_cfg.get("confirmation_slot", "confirm_send")
+    confirm_keywords = state_cfg.get("confirmation_keywords", ["confirm", "send it", "yes", "ok", "sure", "please do"])
+    completion_keywords = state_cfg.get("completion_keywords", ["thank you", "thanks", "done", "finished", "bye"])
+    
+    # Helper to check keywords
+    def has_keyword(text: str, keywords: List[str]) -> bool:
+        if not text: return False
+        t = text.lower()
+        for k in keywords:
+            if k in t:
+                return True
+        return False
+
     # Confirm send - Only check the LATEST user message to avoid sticky state
     # We shouldn't use text_combined for this, as it includes history.
     last_user_msg = ""
@@ -142,16 +180,18 @@ def update_state_from_messages(state: ConversationState, messages: List[Dict[str
             last_user_msg = m.get("text", "")
             break
             
-    if re.search(r"(confirm|send it|yes|ok|sure|please do)", last_user_msg, re.IGNORECASE):
-        state.slots["confirm_send"] = True
+    if has_keyword(last_user_msg, confirm_keywords):
+        state.slots[confirm_slot] = True
     else:
         # If the user says something else (like a new question), reset confirmation
         # This prevents "What else can you do?" from being treated as confirmation state
-        state.slots["confirm_send"] = False
+        if state_cfg.get("reset_confirmation_on_change", True):
+            state.slots[confirm_slot] = False
         
     # Reset confirm_send if user says "thank you" or indicates completion (redundant but safe)
-    if re.search(r"(thank you|thanks|done|finished|bye)", last_user_msg, re.IGNORECASE):
-        state.slots["confirm_send"] = False
+    if state_cfg.get("reset_confirmation_on_completion", True):
+        if has_keyword(last_user_msg, completion_keywords):
+            state.slots[confirm_slot] = False
 
     # Update recent turns (keep last 20)
     state.recent_turns = messages[-20:]

@@ -7,7 +7,7 @@ import logging
 from typing import List, Dict, Any, Optional, Tuple
 
 from .settings import settings
-from .product_rag import build_rag_context
+from .product_rag import build_rag_context, get_product_rag, format_product_context
 from .kb_rag import get_kb_rag
 from .conversation_state import (
     LRUConversationStore,
@@ -20,30 +20,6 @@ from .chat.intent_router import EmbeddingIntentRouter
 logger = logging.getLogger("jwl.chat")
 
 
-def _format_slots(slots: Dict[str, Any], locale: str) -> str:
-    """
-    Compact conversation slots into a string for LLM injection.
-    Only includes stable/useful keys to save tokens.
-    Only include key information slots like name/email/quantity/product_id/confirm_send, make LLM remember them.
-
-    Why it matters:
-    - Makes LLM consistently aware of already-collected key info
-    - Reduces repeated questions
-    - Lets backend enforce policy (e.g., send_inquiry when confirm_send=True)
-    """
-    if not slots:
-        return ""
-    # keep only stable keys
-    keep = {}
-    for k in ["name", "email", "quantity", "product_id", "confirm_send"]:
-        if k in slots and slots[k] not in (None, "", False):
-            keep[k] = slots[k]
-    if not keep:
-        return ""
-    title = "对话关键信息(自动提取)" if locale == "zh" else "Conversation Slots (auto-extracted)"
-    return f"{title}:\n{json.dumps(keep, ensure_ascii=False)}"
-
-
 class ChatService:
     """
     Main LLM chat context builder service.
@@ -54,6 +30,30 @@ class ChatService:
       - Assembles the final prompt for the LLM, including system instructions and context.
       - Supports multi-model configuration (OpenAI, DeepSeek, Qwen, etc.).
     """
+    def _format_slots(self, slots: Dict[str, Any], locale: str) -> str:
+        """
+        Compact conversation slots into a string for LLM injection.
+        Only includes stable/useful keys to save tokens.
+        Only include key information slots like name/email/quantity/product_id/confirm_send, make LLM remember them.
+        """
+        if not slots:
+            return ""
+        
+        # Get confirmation slot name from config
+        state_cfg = self.config.get("state_management", {})
+        confirm_slot = state_cfg.get("confirmation_slot", "confirm_send")
+        
+        # keep only stable keys
+        keep_keys = ["name", "email", "quantity", "product_id", confirm_slot]
+        keep = {}
+        for k in keep_keys:
+            if k in slots and slots[k] not in (None, "", False):
+                keep[k] = slots[k]
+        if not keep:
+            return ""
+        title = "对话关键信息(自动提取)" if locale == "zh" else "Conversation Slots (auto-extracted)"
+        return f"{title}:\n{json.dumps(keep, ensure_ascii=False)}"
+
     def __init__(self, data_store, embedder):
         """
         added `embedder` here to support embedding-based intent routing.
@@ -255,7 +255,7 @@ class ChatService:
         """
         if conversation_id:
             st = self.state_store.get_or_create(conversation_id, locale=locale)
-            st = update_state_from_messages(st, incoming_msgs)
+            st = update_state_from_messages(st, incoming_msgs, config=self.config)
             self.state_store.upsert(st)
             return st.recent_turns[:], st.summary or "", st.slots or {}
         return incoming_msgs, "", {}
@@ -303,9 +303,12 @@ class ChatService:
 
         # stage
         stage = ""
-        # Improved stage detection logic
-        if slots.get("confirm_send") is True:
-            stage = "confirm_send"
+        # Improved stage detection logic (Config Driven)
+        state_cfg = self.config.get("state_management", {})
+        confirm_slot = state_cfg.get("confirmation_slot", "confirm_send")
+        
+        if slots.get(confirm_slot) is True:
+            stage = confirm_slot
         elif slots.get("name") and slots.get("email") and (slots.get("message") or slots.get("product_id")):
              pass
 
@@ -328,9 +331,6 @@ class ChatService:
                 # Fallback if embedding router yields nothing (e.g. empty query or below min_score)
                 intent = "general"
                 intent_score = 0.0
-                # We do NOT fallback to keyword keywords in strict embedding mode, 
-                # unless we want a hybrid approach. 
-                # Assuming "embedding" means we trust the vector search.
                 
         else:
             # Keyword/Hybrid Strategy (Legacy behavior)
@@ -377,9 +377,6 @@ class ChatService:
                 stage = ""
 
         # Keyword-based Short Query Heuristic
-        # Only apply if strategy is 'keyword' OR if we want a safety net. 
-        # User asked to "add into embedding based matching", so if strategy is embedding, we skip this
-        # and assume "yes"/"sure" are caught by 'context_aware' intent in embedding router.
         if strategy == "keyword":
             short_len = heuristics.get("short_query_max_len", 15)
             short_keywords = heuristics.get("short_query_keywords", [])
@@ -399,10 +396,14 @@ class ChatService:
             prod_k = 0
             kb_k = 0
 
-        # [FIX] If stage is confirm_send, we don't need RAG anymore, just action
-        if stage == "confirm_send":
-            prod_k = 0
-            kb_k = 0
+        # [Config Driven] Apply retrieval overrides based on stage
+        retrieval_overrides = self.config.get("retrieval_overrides", {})
+        stage_overrides = retrieval_overrides.get("on_stage", {}).get(stage)
+        if stage_overrides:
+            if "product_k" in stage_overrides:
+                prod_k = stage_overrides["product_k"]
+            if "kb_k" in stage_overrides:
+                kb_k = stage_overrides["kb_k"]
 
         return {
             "intent": intent,
@@ -524,13 +525,42 @@ class ChatService:
         prod_ctx = rag_info.get("context", "")
         rag_mode = rag_info.get("mode", "none")
 
-        # If exact product and not tech, KB minimal
-        if rag_mode == "exact" and not route_plan.get("is_tech"):
-            kb_k = 0
+        # [Constraint] If we have a selected product and user didn't switch (mode!=exact) and not broad search,
+        # we lock context to that product to avoid unrelated search results.
+        last_pid = slots.get("product_id")
+        if last_pid and rag_mode != "exact" and not route_plan.get("is_broad") and prod_k > 0:
+             # Try to fetch the specific product
+             try:
+                 rag = get_product_rag()
+                 p = rag.get_product_by_id(last_pid)
+                 if p:
+                     # Override RAG context
+                     title = "[Current Focus Product]" if locale != "zh" else "[当前聚焦产品]"
+                     prod_ctx = format_product_context([p], locale, title_override=title)
+                     rag_mode = "context_lock"
+                     rag_info["hits_summary"] = [{"id": p.get("id"), "slug": p.get("slug"), "name": str(p.get("name", {}))}]
+                     logger.info(f"Context locked to product_id={last_pid}")
+             except Exception as e:
+                 logger.error(f"Failed to lock context to product {last_pid}: {e}")
 
-        # If stage is confirm_send, reduce KB to 0 (focus on action)
-        if route_plan.get("stage") == "confirm_send":
-            kb_k = 0
+        # [Config Driven] Apply RAG mode overrides
+        retrieval_overrides = self.config.get("retrieval_overrides", {})
+        mode_overrides = retrieval_overrides.get("on_rag_mode", {}).get(rag_mode)
+        
+        if mode_overrides:
+            # Check conditions (unless_flags)
+            skip = False
+            for flag in mode_overrides.get("unless_flags", []):
+                if route_plan.get(flag):
+                    skip = True
+                    break
+            
+            if not skip:
+                overrides = mode_overrides.get("overrides", {})
+                if "kb_k" in overrides:
+                    kb_k = overrides["kb_k"]
+                if "product_k" in overrides:
+                    prod_k = overrides["product_k"]
 
         comp_ctx, kb_hits_summary = self.build_company_context(query, locale, k=kb_k)
 
@@ -558,7 +588,7 @@ class ChatService:
             summary_block = f"{title}:\n{s}"
             
         # Slots
-        slots_block = _format_slots(slots, locale)
+        slots_block = self._format_slots(slots, locale)
         
         ctx_parts: List[str] = []
         if summary_block:
@@ -708,4 +738,4 @@ class ChatService:
             pass
             
         #return llm_messages
-        return {"messages": llm_messages, "tools": tools}
+        return {"messages": llm_messages, "tools": tools, "slots": slots}

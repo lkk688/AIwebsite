@@ -46,7 +46,19 @@ class ToolDispatcher:
         if not handler_key:
             logger.warning(f"No handler key configured for tool '{tool_name}'")
             return {"error": f"Tool '{tool_name}' not configured with a handler."}
+
+        # [Injection] Inject product context from slots if missing
+        # This ensures that even if LLM forgets to pass product_id, we use the one from context
+        if tool_name == "send_inquiry":
+            if not tool_args.get("product_id") and ctx.slots.get("product_id"):
+                tool_args["product_id"] = ctx.slots.get("product_id")
+                logger.info(f"Dispatcher: Injected product_id='{tool_args['product_id']}' from slots")
             
+            # Also try to find slug or other info? 
+            # We assume slots might contain product_slug if we extracted it, but usually we only extract product_id
+            if not tool_args.get("product_slug") and ctx.slots.get("product_slug"):
+                 tool_args["product_slug"] = ctx.slots.get("product_slug")
+
         # 2. Find Python implementation
         func = self._handlers.get(handler_key)
         if not func:

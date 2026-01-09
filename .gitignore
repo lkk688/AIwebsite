@@ -68,3 +68,4 @@ src/data
 public/images
 backend/app/__pycache__/app.cpython-311.pyc
 backend/app/__pycache__/llm_client.cpython-311.pyc
+backend/logs

@@ -26,8 +26,8 @@ Start the backend server:
 
 ```bash
 (mypy311) kaikailiu@Kaikais-MacBook-Pro AIwebsite % cd backend 
-(mypy311) kaikailiu@Kaikais-MacBook-Pro backend % uvicorn app.app:app --reload --port 8000
-LOG_LEVEL=DEBUG uvicorn app.app:app --reload --port 8000
+(mypy311) kaikailiu@Kaikais-MacBook-Pro backend % uvicorn app.main:app --reload --port 8000
+LOG_LEVEL=DEBUG uvicorn app.main:app --reload --port 8000
 ```
 
 Open [http://localhost:3000](http://localhost:3000) to view the site.
@@ -97,14 +97,13 @@ Here is a quick overview of the key files in this project to help you navigate:
 - **`product.ts`**: TypeScript definitions for Product data structures.
 
 #### **`backend/`** (Python FastAPI Backend)
-- **`app/`**:
-  - **`app.py`**: Main entry point for the FastAPI application.
-  - **`settings.py`**: Configuration loading.
-  - **`db.py`**: Database interactions (SQLite/SQLAlchemy).
-  - **`llm_client.py`**: Interface for LLM providers (OpenAI, LiteLLM).
-  - **`product_search.py`**: Logic for searching products.
-  - **`email_ses.py`**: Email sending logic (AWS SES).
-  - **`data_store.py`**: Data persistence layer.
+- **`app/main.py`**: Application entry point.
+- **`app/api/`**: API Route handlers (Chat, General).
+- **`app/core/`**: Core configuration and logging.
+- **`app/services/`**: Business logic (Chat, RAG, Product Search).
+- **`app/adapters/`**: External service integrations (LLM, Embeddings, Email, DB).
+- **`app/tools/`**: Agent tool definitions and handlers.
+
 - **`.env`**: Backend configuration variables (Unified config source).
 
 ---

@@ -3,7 +3,7 @@ from pydantic import Field
 from typing import Literal, Optional
 
 import os
-BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))  # backend/
+BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))  # backend/
 ENV_PATH = os.path.join(BASE_DIR, ".env")
 
 class Settings(BaseSettings):

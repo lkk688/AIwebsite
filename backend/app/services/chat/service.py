@@ -6,15 +6,18 @@ import re
 import logging
 from typing import List, Dict, Any, Optional, Tuple
 
-from .settings import settings
-from .product_rag import build_rag_context, get_product_rag, format_product_context
-from .kb_rag import get_kb_rag
-from .conversation_state import (
+from app.core.config import settings, BASE_DIR
+from app.services.rag.product import build_rag_context, get_product_rag, format_product_context
+from app.services.rag.kb import get_kb_rag
+from app.services.chat.state import (
     LRUConversationStore,
     update_state_from_messages,
 )
-from .tools.registry import ToolRegistry
-from .chat.intent_router import EmbeddingIntentRouter
+from app.tools.registry import ToolRegistry
+from app.tools.dispatcher import ToolDispatcher
+from app.tools.handlers import handle_product_search, handle_send_inquiry, handle_get_product_details
+from app.tools.base import ToolContext
+from app.services.chat.router import EmbeddingIntentRouter
 
 
 logger = logging.getLogger("jwl.chat")
@@ -72,6 +75,15 @@ class ChatService:
 
         # tool registry (config-driven)
         self.tool_registry = ToolRegistry(self.config)
+        
+        # Setup Dispatcher and register handlers
+        self.dispatcher = ToolDispatcher(self.tool_registry)
+        self.dispatcher.register("product_search", handle_product_search)
+        self.dispatcher.register("send_inquiry", handle_send_inquiry)
+        self.dispatcher.register("get_product_details", handle_get_product_details)
+        # Register price_estimate if implemented
+        # self.dispatcher.register("price_estimate", handle_price_estimate)
+
         # intent router (config-driven; fallback to defaults)
         self.intent_router = EmbeddingIntentRouter(self.embedder, self.config)
 
@@ -91,8 +103,7 @@ class ChatService:
             "intent_mapping": {},
         }
         try:
-            base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # backend/
-            project_root = os.path.dirname(base_dir)
+            project_root = os.path.dirname(BASE_DIR)
             config_path = os.path.join(project_root, "src", "data", "chat_config.json")
 
             if os.path.exists(config_path):
@@ -624,6 +635,123 @@ class ChatService:
                 role = "user"
             formatted_history.append({"role": role, "content": t.get("text", "")})
         return formatted_history
+
+    # --------------------------------------------------------------------------
+    # Tool Execution
+    # --------------------------------------------------------------------------
+    def process_tool_call(
+        self, 
+        tool_name: str, 
+        tool_args: Dict[str, Any], 
+        ctx: ToolContext, 
+        allow_actions: bool = True
+    ) -> Dict[str, Any]:
+        """
+        Orchestrates tool execution with permission checks, logging, and result formatting.
+        Returns a standardized execution result:
+        {
+            "tool_name": str,
+            "success": bool,
+            "result": Any,
+            "ui_action": Optional[str],
+            "ui_data": Optional[Dict],
+            "system_msg": Optional[str],
+            "client_response": Optional[str],
+            "skip_reason": Optional[str]
+        }
+        """
+        response = {
+            "tool_name": tool_name,
+            "tool_args": tool_args,
+            "success": False,
+            "result": None,
+            "ui_action": None,
+            "ui_data": None,
+            "system_msg": None,
+            "client_response": None,
+            "skip_reason": None
+        }
+
+        # 1. Pre-execution Checks (Specific to sensitive tools)
+        if tool_name == "send_inquiry":
+            if not allow_actions:
+                response["skip_reason"] = "allow_actions=False"
+                response["client_response"] = self.get_tool_response("confirm_needed", ctx.locale)
+                if hasattr(ctx, "session_logger") and ctx.session_logger:
+                    ctx.session_logger.info("TOOL SKIP: allow_actions=False")
+                return response
+
+            if not (tool_args.get("name") and tool_args.get("email") and tool_args.get("message")):
+                response["skip_reason"] = "missing_fields"
+                response["client_response"] = self.get_tool_response("missing_info", ctx.locale)
+                if hasattr(ctx, "session_logger") and ctx.session_logger:
+                    ctx.session_logger.info("TOOL SKIP: Missing fields")
+                return response
+                
+            # Inject source for tracking
+            tool_args["source"] = "chat_tool"
+
+        # 2. Execution
+        if hasattr(ctx, "session_logger") and ctx.session_logger:
+            ctx.session_logger.info(f"TOOL EXEC: {tool_name} Args: {json.dumps(tool_args, ensure_ascii=False)}")
+            
+        exec_result = self.dispatcher.dispatch(tool_name, tool_args, ctx)
+        response["result"] = exec_result
+        
+        if hasattr(ctx, "session_logger") and ctx.session_logger:
+            # truncate result if too long for logs?
+            res_log = json.dumps(exec_result, ensure_ascii=False, default=str)
+            if len(res_log) > 2000: res_log = res_log[:2000] + "..."
+            ctx.session_logger.info(f"TOOL RETURN: {tool_name} Result: {res_log}")
+
+        # 3. Post-execution Logic & Formatting
+        
+        # Check for errors
+        error_msg = None
+        if isinstance(exec_result, dict):
+            if exec_result.get("error"):
+                error_msg = exec_result.get("error")
+            elif "ok" in exec_result and not exec_result["ok"]:
+                error_msg = exec_result.get("error", "Unknown error")
+        
+        if error_msg:
+             response["success"] = False
+             response["system_msg"] = f"System Notification: Tool '{tool_name}' failed. Error: {error_msg}"
+             response["client_response"] = self.get_tool_response("failure", ctx.locale, error=error_msg)
+             if tool_name == "send_inquiry":
+                 response["ui_action"] = "send_inquiry_failed"
+                 response["ui_data"] = {"inquiry_id": exec_result.get("inquiry_id"), "error": error_msg}
+             
+             if hasattr(ctx, "session_logger") and ctx.session_logger:
+                 ctx.session_logger.error(f"TOOL FAIL: {tool_name} Error: {error_msg}")
+             return response
+
+        # Success handling
+        response["success"] = True
+        
+        if tool_name == "send_inquiry":
+            response["ui_action"] = "send_inquiry"
+            response["ui_data"] = {"inquiry_id": exec_result["inquiry_id"], "ses": exec_result.get("ses")}
+            response["system_msg"] = f"System Notification: Tool '{tool_name}' executed successfully. Inquiry ID: {exec_result['inquiry_id']}. The email HAS been sent. Please confirm to the user that it is done."
+            response["client_response"] = self.get_tool_response("success", ctx.locale)
+            if hasattr(ctx, "session_logger") and ctx.session_logger:
+                ctx.session_logger.info(f"TOOL SUCCESS: {tool_name} ID={exec_result['inquiry_id']}")
+            
+        elif tool_name == "product_search":
+            count = len(exec_result.get("results", []))
+            response["ui_action"] = "product_search"
+            response["ui_data"] = exec_result
+            response["system_msg"] = f"System Notification: Tool '{tool_name}' returned {count} results. Please summarize or recommend based on these results."
+            # client_response is usually handled by LLM text, but for sync API we might want to return something?
+            # Sync API uses LLM response.
+            
+        elif tool_name == "get_product_details":
+            # Truncate for context window safety
+            res_str = json.dumps(exec_result, ensure_ascii=False)
+            if len(res_str) > 6000: res_str = res_str[:6000] + "...(truncated)"
+            response["system_msg"] = f"System Notification: Tool '{tool_name}' output: {res_str}"
+            
+        return response
 
     # --------------------------------------------------------------------------
     # Main Entry Point

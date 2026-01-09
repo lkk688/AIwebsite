@@ -4,10 +4,10 @@ import re
 import numpy as np
 from difflib import SequenceMatcher
 
-from .embeddings_client import EmbeddingsClient
-from .db import sha256_text, get_cached_product_embedding, upsert_product_embedding
-from .vector_index import get_vector_index, VectorIndex
-from .settings import settings
+from app.adapters.embeddings import EmbeddingsClient
+from app.adapters.db import sha256_text, get_cached_product_embedding, upsert_product_embedding
+from app.services.rag.vector import get_vector_index, VectorIndex
+from app.core.config import settings
 import time
 import logging
 

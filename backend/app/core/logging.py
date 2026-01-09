@@ -27,10 +27,6 @@ class SessionLogger:
         
         if existing_file:
             self.filename = existing_file
-            # Extract timestamp from filename for logger name uniqueness if needed
-            # But logger name just needs to be unique enough to not conflict in this process
-            # or reused if we want.
-            # Using conversation_id is good enough for logger name if we handle handlers correctly.
             ts_suffix = existing_file.split('_')[0] 
         else:
             # {date_hours_minute}_{conversation_id}.log
@@ -39,13 +35,6 @@ class SessionLogger:
             ts_suffix = timestamp
             
         self.filepath = os.path.join(self.log_dir, self.filename)
-        
-        # Create a logger. 
-        # CAUTION: If we reuse logger name, we might get duplicate handlers if not cleaned up.
-        # We assume close() is always called.
-        # But to be safe, let's include a random component or ID in logger name, 
-        # because we only care about writing to the FILE.
-        # Or we can check if logger already has handlers.
         
         logger_name = f"session.{self.conversation_id}.{datetime.now().timestamp()}"
         self.logger = logging.getLogger(logger_name)
@@ -75,3 +64,16 @@ class SessionLogger:
         for handler in handlers:
             handler.close()
             self.logger.removeHandler(handler)
+
+def setup_logging():
+    level = os.getenv("LOG_LEVEL", "INFO").upper()
+    logging.basicConfig(
+        level=level,
+        format="%(asctime)s %(levelname)s %(name)s - %(message)s",
+    )
+    # Silence noisy libraries
+    logging.getLogger("openai").setLevel(logging.WARNING)
+    logging.getLogger("httpcore").setLevel(logging.WARNING)
+    logging.getLogger("httpx").setLevel(logging.WARNING)
+    logging.getLogger("botocore").setLevel(logging.WARNING)
+    logging.getLogger("urllib3").setLevel(logging.WARNING)

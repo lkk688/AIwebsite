@@ -1,10 +1,10 @@
 import logging
 from typing import Any, Dict, List, Optional
 from .base import ToolContext
-from app.product_search import search_products
-from app.db import insert_inquiry, mark_inquiry_sent, mark_inquiry_failed
-from app.settings import settings
-from app.product_rag import get_product_rag
+from app.services.product import search_products
+from app.adapters.db import insert_inquiry, mark_inquiry_sent, mark_inquiry_failed
+from app.core.config import settings
+from app.services.rag.product import get_product_rag
 
 logger = logging.getLogger("jwl.tools.handlers")
 

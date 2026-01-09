@@ -1,6 +1,6 @@
 from __future__ import annotations
 from typing import List
-from .settings import settings
+from app.core.config import settings
 
 class EmbeddingsClient:
     def __init__(self):

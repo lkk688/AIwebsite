@@ -11,9 +11,9 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 
-from ..embeddings_client import EmbeddingsClient
-from ..vector_index import get_vector_index, VectorIndex
-from ..settings import settings
+from app.adapters.embeddings import EmbeddingsClient
+from app.services.rag.vector import get_vector_index, VectorIndex
+from app.core.config import settings
 
 logger = logging.getLogger("jwl.intent_router")
 

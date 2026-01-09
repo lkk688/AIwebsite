@@ -6,7 +6,7 @@ import os
 from dataclasses import dataclass
 from typing import Any, Dict, List, Tuple, Optional
 
-from .settings import settings
+from app.core.config import settings, BASE_DIR
 
 # ---------------------------
 # Load Configuration
@@ -22,16 +22,9 @@ def load_search_config() -> Dict[str, Any]:
     }
     
     try:
-        # Assuming src/data/search_config.json is relative to backend root or configured data dir
+        # Assuming src/data/search_config.json is relative to project root
         
-        # Hardcode fix for testing environment if needed, or rely on correct relative path
-        # In this project structure:
-        # backend/app/product_search.py
-        # src/data/search_config.json
-        # The relative path from app/ is "../../src/data"
-        
-        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__))) # backend/
-        project_root = os.path.dirname(base_dir) # AIwebsite/
+        project_root = os.path.dirname(BASE_DIR) # AIwebsite/
         config_path = os.path.join(project_root, "src", "data", "search_config.json")
         
         if os.path.exists(config_path):
@@ -219,7 +212,7 @@ class SemanticHit:
     id: str
     score: float
 
-from .product_rag import get_product_rag
+from app.services.rag.product import get_product_rag
 def _semantic_search_ids(query: str, locale: str, top_k: int) -> List[SemanticHit]:
     """
     Adapter layer to your product_rag.py.

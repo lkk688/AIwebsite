@@ -9,10 +9,10 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 
-from .settings import settings
-from .embeddings_client import EmbeddingsClient
-from .vector_index import get_vector_index, VectorIndex
-from .db import sha256_text, get_cached_kb_embedding, upsert_kb_embedding
+from app.core.config import settings
+from app.adapters.embeddings import EmbeddingsClient
+from app.services.rag.vector import get_vector_index, VectorIndex
+from app.adapters.db import sha256_text, get_cached_kb_embedding, upsert_kb_embedding
 
 logger = logging.getLogger("jwl.kb_rag")
 
@@ -293,11 +293,12 @@ class KnowledgeBaseRAG:
     # Retrieve (locale filter + dedupe)
     # ---------------------------
 
-    def retrieve(self, query: str, locale: str, k: int = 3) -> List[Dict[str, Any]]:
+    def retrieve(self, query: str, locale: str, k: int = 3, min_score: float = 0.45) -> List[Dict[str, Any]]:
         """
         Returns top-k KB chunks for the query.
         ✅ filters by locale (lang) so prompt won't mix languages
         ✅ dedup by kb_id (keep best score)
+        ✅ filters by min_score to reduce noise
         """
         if not query or not query.strip():
             return []
@@ -322,6 +323,10 @@ class KnowledgeBaseRAG:
         for score, idx in zip(scores, indices):
             idx_i = int(idx)
             if idx_i < 0 or idx_i >= len(self.chunks):
+                continue
+            
+            s = float(score)
+            if s < min_score:
                 continue
 
             item = self.chunks[idx_i]

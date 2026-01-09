@@ -17,6 +17,8 @@ class Settings(BaseSettings):
     # ---- backend switch (给默认值可以) ----
     llm_backend: Literal["openai", "litellm"] = Field(default="openai", alias="LLM_BACKEND")
     llm_model: str = Field(default="gpt-4.1-mini", alias="LLM_MODEL")
+    # Selection for model prompt style: "default", "deepseek", "qwen", etc.
+    model_type: str = Field(default="default", alias="MODEL_TYPE")
 
     # ---- OpenAI (API KEY 建议必填) ----
     openai_api_key: str = Field(alias="OPENAI_API_KEY")               # ✅ 无默认值：必须从 env 来

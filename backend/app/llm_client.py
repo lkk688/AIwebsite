@@ -96,12 +96,15 @@ class LLMClient:
             # Recommended approach for OpenAI Responses API: pass message items directly as input.
             # See OpenAI Migration Guide to Responses:
             # https://platform.openai.com/docs/guides/migrate-to-responses
-            resp = self.client.responses.create(
-                model=self._model_name(),
-                input=messages,
-                tools=tools,
-                #temperature=temperature, # Note: temperature might not be supported in all Responses API versions yet
-            )
+            kwargs = {
+                "model": self._model_name(),
+                "input": messages,
+                #"temperature": temperature, # Note: temperature might not be supported in all Responses API versions yet
+            }
+            if tools:
+                kwargs["tools"] = tools
+
+            resp = self.client.responses.create(**kwargs)
             text = getattr(resp, "output_text", "") or ""
             tool_call = _extract_tool_call_from_openai_response(resp)
             return LLMResult(text=text, tool_call=tool_call)
@@ -169,13 +172,18 @@ class LLMClient:
 
         We accumulate function-call arguments across delta events and emit ONE tool_call at args.done.
         """
-        # Don't pass temperature here (some models don't support it; you already saw 400)
-        stream = self.client.responses.create(
-            model=self._model_name(),
-            input=messages,
-            tools=tools,
-            stream=True,
-        )
+        # Fix for 400 Bad Request: "Missing required parameter: 'tools[0].name'"
+        # If tools is empty, don't pass it.
+        # Also ensure tools format is correct (handled by ToolRegistry).
+        kwargs = {
+            "model": self._model_name(),
+            "input": messages,
+            "stream": True,
+        }
+        if tools:
+            kwargs["tools"] = tools
+
+        stream = self.client.responses.create(**kwargs)
 
         arg_buf: List[str] = []
         last_tool_name: Optional[str] = None

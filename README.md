@@ -27,6 +27,7 @@ Start the backend server:
 ```bash
 (mypy311) kaikailiu@Kaikais-MacBook-Pro AIwebsite % cd backend 
 (mypy311) kaikailiu@Kaikais-MacBook-Pro backend % uvicorn app.app:app --reload --port 8000
+LOG_LEVEL=DEBUG uvicorn app.app:app --reload --port 8000
 ```
 
 Open [http://localhost:3000](http://localhost:3000) to view the site.
@@ -628,3 +629,52 @@ rsync -av --delete \
   --exclude '__pycache__' --exclude '*.pyc' \
   backend/ user@server:/opt/mywebsite/backend/
 ```
+
+## 🤖 AI Chat System
+
+The backend features an advanced AI chat system with embedding-based intent routing and a modular tool execution layer.
+
+### Core Components
+
+1.  **Intent Router (`backend/app/chat/intent_router.py`)**:
+    *   Uses embedding similarity (cosine distance) to classify user queries into intents (e.g., `quote_order`, `technical`, `broad_product`).
+    *   Configurable via `src/data/chat_config.json` under `intent_examples`.
+
+2.  **Tool Execution Layer (`backend/app/tools/`)**:
+    *   **Dispatcher (`dispatcher.py`)**: Central hub that routes tool calls to the correct handler.
+    *   **Handlers (`handlers.py`)**: Implementation of tool logic (e.g., `handle_product_search`, `handle_send_inquiry`).
+    *   **Context (`base.py`)**: Passes shared dependencies (database, mailer, settings) to tools safely.
+
+3.  **Chat Service (`chat_service.py`)**:
+    *   Orchestrates the conversation.
+    *   Dynamic tool filtering based on intent and conversation stage.
+
+### 🛠 How to Add a New Tool
+
+1.  **Define Tool in Config**:
+    Add your tool definition to `src/data/chat_config.json`:
+    ```json
+    "tools": {
+      "my_new_tool": {
+        "enabled": true,
+        "description": {"en": "...", "zh": "..."},
+        "parameters": { ... },
+        "handler": "my_tool_handler"
+      }
+    }
+    ```
+
+2.  **Implement Handler**:
+    Add the python function in `backend/app/tools/handlers.py`:
+    ```python
+    def handle_my_tool(ctx: ToolContext, arg1: str):
+        # Your logic here
+        return {"result": "ok"}
+    ```
+
+3.  **Register Handler**:
+    Register the new handler in `backend/app/app.py`:
+    ```python
+    from .tools.handlers import handle_my_tool
+    dispatcher.register("my_tool_handler", handle_my_tool)
+    ```

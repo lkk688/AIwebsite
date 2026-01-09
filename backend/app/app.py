@@ -1,4 +1,5 @@
 import json
+import time
 from typing import Any, Dict, List, Optional
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
@@ -15,8 +16,12 @@ from .embeddings_client import EmbeddingsClient
 from .product_rag import init_product_rag
 from .kb_rag import init_kb_rag
 from .chat_service import ChatService
+from .tools.dispatcher import ToolDispatcher
+from .tools.base import ToolContext
+from .tools.handlers import handle_product_search, handle_send_inquiry, handle_get_product_details
 import logging
 import os
+import time
 
 def setup_logging():
     level = os.getenv("LOG_LEVEL", "INFO").upper()
@@ -76,11 +81,17 @@ app.add_middleware(
 )
 
 store = DataStore(settings.data_dir)
-chat_service = ChatService(store)
 llm = LLMClient()
 embedder = EmbeddingsClient()
+chat_service = ChatService(store, embedder)
 init_product_rag(store.products, embedder)
 init_kb_rag(embedder)
+
+# Initialize Tool Dispatcher
+dispatcher = ToolDispatcher(chat_service.tool_registry)
+dispatcher.register("product_search", handle_product_search)
+dispatcher.register("send_inquiry", handle_send_inquiry)
+dispatcher.register("get_product_details", handle_get_product_details)
 
 # Initialize SES Mailer
 # Uses boto3 to send emails via AWS SES
@@ -95,77 +106,53 @@ mailer = SesMailer(
 )
 
 
-
-def send_inquiry_with_db_email(name: str, email: str, message: str, source: str, locale: str):
+@app.post("/api/chat/init")
+async def init_chat():
     """
-    Process an inquiry:
-    1. Write to SQLite database first (persistence).
-    2. Attempt to send an email via AWS SES.
-    3. Update the database with the send status (success/failure).
+    Triggers initialization of RAG indices (Product, KB) and Intent Router.
+    This is called when the chat window opens to ensure low latency for the first message.
+    """
+    start = time.time()
+    logger.info("INIT_CHAT | Starting initialization...")
     
-    Returns a unified structure suitable for the /api/send-email endpoint and the chat tool.
-    """
-    inquiry_id = insert_inquiry(
-        name=name,
-        email=email,
-        message=message,
-        source=source,
-        locale=locale,
-        meta={"ua": "api"}  # You can also add request headers / IP, etc.
-    )
-
+    # 1. Build Intent Router
     try:
-        # Send email via SES
-        ses_resp = mailer.send_inquiry(name, email, message)  # Returns {"messageId": "..."}
-        ses_message_id = ses_resp.get("messageId") if isinstance(ses_resp, dict) else None
-        mark_inquiry_sent(inquiry_id, ses_message_id or "")
-        return {
-            "ok": True,
-            "inquiry_id": inquiry_id,
-            "ses": ses_resp,
-            "error": None,
-        }
+        if hasattr(chat_service, "intent_router") and chat_service.intent_router:
+            chat_service.intent_router.build()
+            logger.info("INIT_CHAT | Intent Router built")
     except Exception as e:
-        err = str(e)
-        mark_inquiry_failed(inquiry_id, err)
-        return {
-            "ok": False,
-            "inquiry_id": inquiry_id,
-            "ses": None,
-            "error": err,
-        }
+        logger.error(f"INIT_CHAT | Intent Router failed: {e}")
 
-def send_inquiry_with_db(name: str, email: str, message: str, source: str, locale: str):
-    """
-    Process an inquiry (Database Only):
-    1. Write to SQLite database.
-    2. Does NOT send an email via SES (useful for testing or specific workflows).
-    
-    Returns a unified structure suitable for the /api/inquiry endpoint.
-    """
+    # 2. Build Product RAG
     try:
-        inquiry_id = insert_inquiry(
-            name=name,
-            email=email,
-            message=message,
-            source=source,
-            locale=locale,
-            meta={"ua": "api"}  # You can also add request headers / IP, etc.
-        )
-
-        return {
-            "ok": True,
-            "inquiry_id": inquiry_id,
-            "ses": None,
-            "error": None,
-        }
+        from .product_rag import get_product_rag
+        prag = get_product_rag()
+        # Check if already built (check internal flag or just call it, it has checks)
+        # But build_index() in ProductRAG doesn't have an 'is_built' check, it rebuilds?
+        # Let's check ProductRAG code. It sets self._vecs.
+        if prag._vecs is None:
+            prag.build_index()
+            logger.info("INIT_CHAT | Product RAG built")
+        else:
+            logger.info("INIT_CHAT | Product RAG already ready")
     except Exception as e:
-        return {
-            "ok": False,
-            "inquiry_id": None,
-            "ses": None,
-            "error": str(e),
-        }
+        logger.error(f"INIT_CHAT | Product RAG failed: {e}")
+
+    # 3. Build KB RAG
+    try:
+        from .kb_rag import get_kb_rag
+        krag = get_kb_rag()
+        if krag._vecs is None:
+            krag.build_index()
+            logger.info("INIT_CHAT | KB RAG built")
+        else:
+             logger.info("INIT_CHAT | KB RAG already ready")
+    except Exception as e:
+        logger.error(f"INIT_CHAT | KB RAG failed: {e}")
+
+    duration = time.time() - start
+    logger.info(f"INIT_CHAT | Complete in {duration:.2f}s")
+    return {"status": "ready", "duration": duration}
 
 
 # ----------- Schemas -----------
@@ -214,22 +201,22 @@ async def send_email(req: EmailRequest):
     """
     Send an email via SES and record it in the database.
     """
-    result = send_inquiry_with_db_email(
+    ctx = ToolContext(store=store, mailer=mailer, locale=req.locale, settings=settings)
+    result = handle_send_inquiry(
+        ctx,
         name=req.name,
         email=str(req.email),
         message=req.message,
-        source="api/send-email",
-        locale=req.locale,
+        source="api/send-email"
     )
 
     if result["ok"]:
-        return {"status": "success", "inquiry_id": result["inquiry_id"], "ses": result["ses"]}
+        return {"status": "success", "inquiry_id": result["inquiry_id"], "ses": result.get("ses")}
     else:
-        # Do not raise exception here: return failure reason, frontend can prompt user to "try again later/use form"
         return {
             "status": "failed",
-            "inquiry_id": result["inquiry_id"],
-            "error": result["error"],
+            "inquiry_id": result.get("inquiry_id"),
+            "error": result.get("error"),
         }
 
 
@@ -237,23 +224,24 @@ async def send_email(req: EmailRequest):
 async def submit_inquiry(req: EmailRequest):
     """
     Submit an inquiry. This endpoint stores the inquiry in the database ONLY.
-    It provides a dedicated endpoint for inquiry submission, distinct from the generic send-email.
     """
-    result = send_inquiry_with_db(
+    # Pass mailer=None to skip sending email
+    ctx = ToolContext(store=store, mailer=None, locale=req.locale, settings=settings)
+    result = handle_send_inquiry(
+        ctx,
         name=req.name,
         email=str(req.email),
         message=req.message,
-        source="api/inquiry",
-        locale=req.locale,
+        source="api/inquiry"
     )
 
     if result["ok"]:
-        return {"status": "success", "inquiry_id": result["inquiry_id"], "ses": result["ses"]}
+        return {"status": "success", "inquiry_id": result["inquiry_id"], "ses": None}
     else:
         return {
             "status": "failed",
-            "inquiry_id": result["inquiry_id"],
-            "error": result["error"],
+            "inquiry_id": result.get("inquiry_id"),
+            "error": result.get("error"),
         }
 
 @app.get("/api/products/search")
@@ -283,51 +271,86 @@ async def chat(req: ChatRequest):
     Standard Chat API (Non-streaming).
     Processes user messages, interacts with LLM, and handles tool calls (like sending emails).
     """
-    messages = chat_service.prepare_llm_messages(req.messages, req.locale, conversation_id=req.conversation_id)
-    #tools = llm.tools()
-    tools = llm.tools() if req.allow_actions else []
-
+    # 1) Get payload (messages + dynamic tools)
+    payload = chat_service.prepare_llm_messages(req.messages, req.locale, conversation_id=req.conversation_id)
+    messages = payload["messages"]
+    
+    # 2) Decide whether to allow tool execution
+    # If req.allow_actions is True, we pass the tools to LLM.
+    # If False, we might still pass read-only tools (like product_search),
+    # but for sensitive tools (send_inquiry), we need careful handling.
+    # The ToolRegistry inside chat_service already filters tools based on logic.
+    # But here we double-check if we want to suppress ALL tools or just rely on registry.
+    
+    # Current logic: use tools from payload if allow_actions is True, else empty?
+    # Actually, read-only tools (search) should be allowed even if allow_actions=False (which usually means "don't send email yet").
+    # But for compatibility with frontend "Action Mode", let's stick to the registry's output,
+    # OR if you want to strictly disable actions unless confirmed:
+    tools = payload["tools"]
+    
+    # If req.allow_actions is False, we might want to filter out 'send_inquiry' specifically again,
+    # but registry might have already done it or kept it for "planning".
+    # Let's trust the registry output which is built for the current turn.
+    
+    # Legacy override: if frontend says allow_actions=False, maybe we shouldn't pass *any* tool?
+    # NO, product_search is safe.
+    # So we use the tools returned by service (which are filtered by intent/stage).
+    
     try:
         result = llm.complete(messages=messages, tools=tools, temperature=0.6)
 
         # Tool call guard (execute only if frontend allow_actions=True)
-        if result.tool_call and result.tool_call.get("name") == "send_inquiry":
-            if not req.allow_actions:
-                tip = chat_service.get_tool_response("confirm_needed", req.locale)
-                return ChatResponse(response=(result.text + "\n\n" + tip).strip())
+        if result.tool_call:
+            tool_name = result.tool_call.get("name")
+            tool_args = result.tool_call.get("arguments", {}) or {}
+            
+            # Create Context
+            ctx = ToolContext(store=store, mailer=mailer, locale=req.locale, settings=settings)
 
-            args = result.tool_call.get("arguments", {}) or {}
-            name = args.get("name")
-            email = args.get("email")
-            message = args.get("message")
+            # --- Case A: send_inquiry (Sensitive) ---
+            if tool_name == "send_inquiry":
+                if not req.allow_actions:
+                    tip = chat_service.get_tool_response("confirm_needed", req.locale)
+                    return ChatResponse(response=(result.text + "\n\n" + tip).strip())
 
-            if not (name and email and message):
-                tip = chat_service.get_tool_response("missing_info", req.locale)
-                return ChatResponse(response=(result.text + "\n\n" + tip).strip())
+                name = tool_args.get("name")
+                email = tool_args.get("email")
+                message = tool_args.get("message")
 
-            send_result = send_inquiry_with_db_email(
-                name=name,
-                email=email,
-                message=message,
-                source="chat_tool",
-                locale=req.locale,
-            )
+                if not (name and email and message):
+                    tip = chat_service.get_tool_response("missing_info", req.locale)
+                    return ChatResponse(response=(result.text + "\n\n" + tip).strip())
 
-            if send_result["ok"]:
-                confirm = chat_service.get_tool_response("success", req.locale)
+                # Dispatch
+                exec_result = dispatcher.dispatch(tool_name, tool_args, ctx)
+
+                if exec_result.get("ok"):
+                    confirm = chat_service.get_tool_response("success", req.locale)
+                    return ChatResponse(
+                        response=confirm,
+                        action="send_inquiry",
+                        action_data={"inquiry_id": exec_result["inquiry_id"], "ses": exec_result.get("ses")},
+                    )
+                else:
+                    fail_text = chat_service.get_tool_response("failure", req.locale, error=exec_result.get("error"))
+                    return ChatResponse(
+                        response=fail_text,
+                        action="send_inquiry_failed",
+                        action_data={"inquiry_id": exec_result.get("inquiry_id"), "error": exec_result.get("error")},
+                    )
+            
+            # --- Case B: product_search (Read-only / Safe) ---
+            elif tool_name == "product_search":
+                exec_result = dispatcher.dispatch(tool_name, tool_args, ctx)
+                if "error" in exec_result:
+                    return ChatResponse(response=f"Tool error: {exec_result['error']}")
+
                 return ChatResponse(
-                    response=confirm,
-                    action="send_inquiry",
-                    action_data={"inquiry_id": send_result["inquiry_id"], "ses": send_result["ses"]},
+                    response=result.text, # "I found some bags..."
+                    action="product_search",
+                    action_data=exec_result
                 )
-            else:
-                # ✅ Critical: Return failure case to ChatResponse
-                fail_text = chat_service.get_tool_response("failure", req.locale, error=send_result["error"])
-                return ChatResponse(
-                    response=fail_text,
-                    action="send_inquiry_failed",
-                    action_data={"inquiry_id": send_result["inquiry_id"], "error": send_result["error"]},
-                )
+
         return ChatResponse(response=result.text)
 
     except Exception as e:
@@ -337,8 +360,19 @@ async def chat(req: ChatRequest):
 
 @app.post("/api/chat/stream")
 async def chat_stream(req: ChatRequest):
-    messages = chat_service.prepare_llm_messages(req.messages, req.locale, conversation_id=req.conversation_id)
-    tools = llm.tools() if req.allow_actions else []  # ✅ 和 /api/chat 对齐
+    # 1) Get payload
+    payload = chat_service.prepare_llm_messages(req.messages, req.locale, conversation_id=req.conversation_id)
+    messages = payload["messages"]
+    tools = payload["tools"]
+
+    # Check for user name update
+    user_name = None
+    if req.conversation_id:
+        try:
+            st = chat_service.state_store.get_or_create(req.conversation_id, req.locale)
+            user_name = st.slots.get("name")
+        except Exception:
+            pass
 
     # Log Input
     user_input = req.messages[-1].text if req.messages else ""
@@ -348,99 +382,228 @@ async def chat_stream(req: ChatRequest):
         return f"data: {json.dumps(payload, ensure_ascii=False)}\n\n".encode("utf-8")
 
     def gen():
-        pending_tool = None
-        assistant_text_chunks = []
+        # Send user update if detected
+        if user_name:
+            yield sse({"type": "user_update", "name": user_name})
 
+        # Create Context for stream
+        ctx = ToolContext(store=store, mailer=mailer, locale=req.locale, settings=settings)
+        
+        current_messages = messages
+        # Allow max 2 turns (1 tool execution + 1 follow-up)
+        MAX_TURNS = 2
+        
+        # Log the full prompt (RAG context is in system message)
         try:
-            # Log full prompt for debugging RAG/Hallucinations
-            logger.info(f"CHAT_STREAM PROMPT | Messages: {json.dumps(messages, ensure_ascii=False)}")
+            logger.info(f"CHAT_STREAM PROMPT | Messages: {json.dumps(current_messages, ensure_ascii=False)}")
+        except Exception:
+            pass
+
+        if not tools:
+            logger.info("CHAT_STREAM START (Standard Mode) | No tools available")
+        else:
+            logger.info(f"CHAT_STREAM START (Agent Mode) | Max Turns: {MAX_TURNS} | Tools: {len(tools)}")
+
+        for turn in range(MAX_TURNS):
+            pending_tool = None
+            assistant_text_chunks = []
+            tool_called_in_this_turn = False
             
-            logger.info("CHAT_STREAM LLM | Connecting to model...")
-            for ev in llm.stream(messages=messages, tools=tools, temperature=0.6):
-                t = ev.get("type")
+            logger.info(f"CHAT_STREAM TURN {turn+1}/{MAX_TURNS} | Messages count: {len(current_messages)}")
 
-                if t == "delta":
-                    assistant_text_chunks.append(ev.get("text", ""))
-                    yield sse({"type": "delta", "text": ev.get("text", "")})
+            try:
+                t0 = time.time()
+                t_first = None
+                token_count = 0
+                
+                stream_gen = llm.stream(messages=current_messages, tools=tools, temperature=0.6)
+                
+                for ev in stream_gen:
+                    if t_first is None:
+                        t_first = time.time()
+                    
+                    t = ev.get("type")
 
-                elif t == "tool_call":
-                    pending_tool = ev
-                    logger.info(f"CHAT_STREAM TOOL_DETECTED | Name: {ev.get('name')} | Args: {ev.get('arguments')}")
-                    yield sse({
-                        "type": "tool_call",
-                        "name": ev.get("name"),
-                        "arguments": ev.get("arguments", {}),
-                    })
+                    if t == "delta":
+                        text = ev.get("text", "")
+                        token_count += 1 # Rough estimate
+                        assistant_text_chunks.append(text)
+                        yield sse({"type": "delta", "text": text})
 
-                elif t == "done":
-                    # ✅ 统一在 done 时输出 final（确保用户看到结果）
-                    if pending_tool and pending_tool.get("name") == "send_inquiry":
-                        logger.info(f"CHAT_STREAM TOOL_EXEC | Action: send_inquiry")
-                        
-                        if not req.allow_actions:
-                            logger.info("CHAT_STREAM TOOL_SKIP | Reason: allow_actions=False")
-                            final_text = chat_service.get_tool_response("confirm_needed", req.locale)
-                            yield sse({"type": "final", "text": final_text})
-                            yield sse({"type": "done"})
-                            return
+                    elif t == "tool_call":
+                        pending_tool = ev
+                        tool_called_in_this_turn = True
+                        logger.info(f"CHAT_STREAM TURN {turn+1} TOOL_DETECTED | Name: {ev.get('name')} | Args: {ev.get('arguments')}")
+                        yield sse({
+                            "type": "tool_call",
+                            "name": ev.get("name"),
+                            "arguments": ev.get("arguments", {}),
+                        })
 
-                        args = pending_tool.get("arguments", {}) or {}
-                        name = args.get("name")
-                        email = args.get("email")
-                        message = args.get("message")
+                    elif t == "done":
+                        break
+                
+                t_end = time.time()
+                latency_first = (t_first - t0) * 1000 if t_first else 0
+                latency_total = (t_end - t0) * 1000
+                tokens_per_sec = token_count / (t_end - t_first) if (t_first and t_end > t_first) else 0
+                
+                logger.info(f"LLM Perf: first_token={latency_first:.0f}ms total={latency_total:.0f}ms tokens={token_count} rate={tokens_per_sec:.1f}t/s")
 
-                        if not (name and email and message):
-                            logger.info("CHAT_STREAM TOOL_SKIP | Reason: Missing fields")
-                            final_text = chat_service.get_tool_response("missing_info", req.locale)
-                            yield sse({"type": "final", "text": final_text})
-                            yield sse({"type": "done"})
-                            return
+            except Exception as e:
+                logger.exception(f"CHAT_STREAM TURN {turn+1} LLM ERROR")
+                yield sse({"type": "error", "message": str(e)})
+                return
 
-                        # ✅ 走 DB + SES，并把成功/失败返回给用户
-                        send_result = send_inquiry_with_db_email(
-                            name=name,
-                            email=email,
-                            message=message,
-                            source="chat_stream_tool",
-                            locale=req.locale,
-                        )
+            # If no tool called, we are done
+            if not tool_called_in_this_turn:
+                final_response = "".join(assistant_text_chunks).strip()
+                logger.info(f"CHAT_STREAM COMPLETE | Turn: {turn+1} | Response length: {len(final_response)}")
+                # logger.info(f"CHAT_STREAM RESPONSE: {final_response}") # Avoid duplicate log
+                logger.debug(f"CHAT_STREAM RESPONSE_FULL: {final_response}")
 
-                        if send_result["ok"]:
-                            logger.info(f"CHAT_STREAM TOOL_SUCCESS | InquiryID: {send_result['inquiry_id']}")
-                            final_text = chat_service.get_tool_response("success", req.locale)
-                            yield sse({
-                                "type": "final",
-                                "text": final_text,
-                                "action": "send_inquiry",
-                                "action_data": {"inquiry_id": send_result["inquiry_id"], "ses": send_result["ses"]},
-                            })
-                        else:
-                            logger.error(f"CHAT_STREAM TOOL_FAIL | Error: {send_result['error']}")
-                            final_text = chat_service.get_tool_response("failure", req.locale, error=send_result["error"])
-                            yield sse({
-                                "type": "final",
-                                "text": final_text,
-                                "action": "send_inquiry_failed",
-                                "action_data": {"inquiry_id": send_result["inquiry_id"], "error": send_result["error"]},
-                            })
+                if req.conversation_id:
+                    chat_service.persist_turn(req.conversation_id, "assistant", final_response, req.locale)
 
+                yield sse({"type": "final", "text": final_response})
+                yield sse({"type": "done"})
+                return
+
+            # Handle Tool Execution
+            if pending_tool:
+                tool_name = pending_tool.get("name")
+                tool_args = pending_tool.get("arguments", {}) or {}
+                
+                logger.info(f"CHAT_STREAM TURN {turn+1} TOOL_EXEC | Action: {tool_name} | Args: {json.dumps(tool_args, ensure_ascii=False)}")
+
+                # Append assistant's thought/tool_call to history
+                current_messages.append({
+                    "role": "assistant",
+                    "content": "".join(assistant_text_chunks)
+                })
+
+                # --- Send Inquiry ---
+                if tool_name == "send_inquiry":
+                    if not req.allow_actions:
+                        logger.info("CHAT_STREAM TOOL_SKIP | Reason: allow_actions=False")
+                        final_text = chat_service.get_tool_response("confirm_needed", req.locale)
+                        yield sse({"type": "final", "text": final_text})
                         yield sse({"type": "done"})
                         return
 
-                    # 没 tool call
-                    final_response = "".join(assistant_text_chunks).strip()
-                    logger.info(f"CHAT_STREAM COMPLETE | Response: '{final_response[:100]}...'")
-                    yield sse({"type": "final", "text": final_response})
-                    yield sse({"type": "done"})
-                    return
+                    name = tool_args.get("name")
+                    email = tool_args.get("email")
+                    message = tool_args.get("message")
 
-        except GeneratorExit:
-            # ✅ 客户端断开会触发；别当错误
-            logger.warning("CHAT_STREAM ABORT | Client disconnected")
-            return
-        except Exception as e:
-            logger.exception("CHAT_STREAM ERROR")
-            yield sse({"type": "error", "message": str(e)})
-            return
+                    if not (name and email and message):
+                        logger.info("CHAT_STREAM TOOL_SKIP | Reason: Missing fields")
+                        final_text = chat_service.get_tool_response("missing_info", req.locale)
+                        yield sse({"type": "final", "text": final_text})
+                        yield sse({"type": "done"})
+                        return
+
+                    # Inject source
+                    tool_args["source"] = "chat_stream_tool"
+                    exec_result = dispatcher.dispatch(tool_name, tool_args, ctx)
+
+                    if exec_result.get("ok"):
+                        logger.info(f"CHAT_STREAM TOOL_SUCCESS | InquiryID: {exec_result['inquiry_id']}")
+                        # Yield action event for UI update
+                        # We use 'action' field to trigger UI side effects without replacing text
+                        yield sse({
+                            "type": "action_event", # Custom type or reuse 'final' with action? 
+                            # If we use 'final', it might clear text. 
+                            # Let's use a safe way: 'tool_result'? 
+                            # The frontend likely listens to 'action' in 'final'.
+                            # If we send 'final' with empty text, it might clear screen.
+                            # So let's send 'action' only if supported, or rely on LLM confirmation text.
+                            # But we want the UI to show the 'Success' state (checkmark).
+                            # We'll send a 'final' packet with action, but with current text?
+                            # Actually, just let the LLM say "Sent".
+                            # But we need the 'action_data' for the inquiry_id.
+                            # We will send a special packet.
+                            "action": "send_inquiry",
+                            "action_data": {"inquiry_id": exec_result["inquiry_id"], "ses": exec_result.get("ses")},
+                        })
+                        
+                        # Feed success back to LLM
+                        sys_msg = f"System Notification: Tool '{tool_name}' executed successfully. Inquiry ID: {exec_result['inquiry_id']}. The email HAS been sent. Please confirm to the user that it is done."
+                        current_messages.append({
+                            "role": "user",
+                            "content": sys_msg
+                        })
+                        # Persist tool result
+                        if req.conversation_id:
+                            chat_service.persist_turn(req.conversation_id, "user", sys_msg, req.locale)
+                            
+                    else:
+                        logger.error(f"CHAT_STREAM TOOL_FAIL | Error: {exec_result.get('error')}")
+                        # Feed error
+                        sys_msg = f"System Notification: Tool '{tool_name}' failed. Error: {exec_result.get('error')}"
+                        current_messages.append({
+                            "role": "user",
+                            "content": sys_msg
+                        })
+                        if req.conversation_id:
+                            chat_service.persist_turn(req.conversation_id, "user", sys_msg, req.locale)
+
+                # --- Get Product Details ---
+                elif tool_name == "get_product_details":
+                    exec_result = dispatcher.dispatch(tool_name, tool_args, ctx)
+                    logger.info(f"CHAT_STREAM TOOL_RESULT | Tool: {tool_name} | Result Keys: {list(exec_result.keys())}")
+                    
+                    # Feed result back to LLM
+                    res_str = json.dumps(exec_result, ensure_ascii=False)
+                    if len(res_str) > 6000: res_str = res_str[:6000] + "...(truncated)"
+                    
+                    sys_msg = f"System Notification: Tool '{tool_name}' output: {res_str}"
+                    current_messages.append({
+                        "role": "user",
+                        "content": sys_msg
+                    })
+                    # Persist tool result (maybe truncated? or full? Persisting huge JSON might be bad for token limits next time)
+                    # We might want to persist a summary or the full thing. 
+                    # For now, persist it so the model remembers it saw the details.
+                    if req.conversation_id:
+                        chat_service.persist_turn(req.conversation_id, "user", sys_msg, req.locale)
+
+                # --- Product Search ---
+                elif tool_name == "product_search":
+                    exec_result = dispatcher.dispatch(tool_name, tool_args, ctx)
+                    logger.info(f"CHAT_STREAM TOOL_RESULT | Tool: {tool_name} | Results: {len(exec_result.get('results', []))}")
+                    
+                    # Return results to frontend to render
+                    yield sse({
+                        "type": "final", # This triggers UI rendering of cards
+                        "action": "product_search",
+                        "action_data": exec_result,
+                        "text": "".join(assistant_text_chunks) # Keep existing text?
+                    })
+                    
+                    # Feed back to LLM so it can comment
+                    sys_msg = f"System Notification: Tool '{tool_name}' returned {len(exec_result.get('results', []))} results. Please summarize or recommend based on these results."
+                    current_messages.append({
+                        "role": "user",
+                        "content": sys_msg
+                    })
+                    if req.conversation_id:
+                        chat_service.persist_turn(req.conversation_id, "user", sys_msg, req.locale)
+                
+                else:
+                    # Unknown tool?
+                    logger.warning(f"CHAT_STREAM TOOL_UNKNOWN | Name: {tool_name}")
+                    sys_msg = f"System Notification: Tool '{tool_name}' execution failed (unknown tool)."
+                    current_messages.append({
+                        "role": "user",
+                        "content": sys_msg
+                    })
+                    if req.conversation_id:
+                        chat_service.persist_turn(req.conversation_id, "user", sys_msg, req.locale)
+
+                # Loop continues to next turn to generate response based on tool output
+
+        # End of loop
+        logger.info("CHAT_STREAM LOOP END | Max turns reached or finished")
+        yield sse({"type": "done"})
 
     return StreamingResponse(gen(), media_type="text/event-stream")

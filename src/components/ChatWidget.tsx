@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useChat } from '@/contexts/ChatContext';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { Bot, MessageCircle, Minus, Send, Sparkles, User, X, Trash2 } from 'lucide-react';
+import { Bot, MessageCircle, Minus, Send, Sparkles, User, X, Trash2, Download } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -22,12 +22,13 @@ const markdownStyles = `
 export default function ChatWidget() {
   const { isOpen, setIsOpen, message, setMessage } = useChat();
   const { t } = useLanguage();
-  const [chatHistory, setChatHistory] = useState<{ role: 'user' | 'bot'; text: string }[]>([
-    // @ts-ignore
-    { role: 'bot', text: t.chat?.greeting || 'Hello! How can I help you today?' }
-  ]);
+  const [chatHistory, setChatHistory] = useState<{ role: 'user' | 'bot'; text: string; timestamp?: string }[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isInitializing, setIsInitializing] = useState(false);
+  const [isThinking, setIsThinking] = useState(false);
+  const [userName, setUserName] = useState('Guest');
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const initCalledRef = useRef(false);
 
   // Contact Info State
   const [contactInfo, setContactInfo] = useState({ email: '', phone: '' });
@@ -78,7 +79,11 @@ export default function ChatWidget() {
   const handleClearHistory = () => {
     // Clear State
     // @ts-ignore
-    setChatHistory([{ role: 'bot', text: t.chat?.greeting || 'Hello! How can I help you today?' }]);
+    setChatHistory([{ 
+      role: 'bot', 
+      text: t.chat?.greeting || 'Hello! How can I help you today?',
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    }]);
     
     // Clear Local Storage
     localStorage.removeItem('chat_history');
@@ -92,6 +97,18 @@ export default function ChatWidget() {
     }
     localStorage.setItem('chat_conversation_id', conversationIdRef.current!);
   };
+  
+  const handleDownloadChat = () => {
+      const dataStr = JSON.stringify(chatHistory, null, 2);
+      const blob = new Blob([dataStr], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `chat_history_${new Date().toISOString().slice(0,10)}.json`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+  };
 
   useEffect(() => {
     // Reset chat history when language changes (optional, but good for consistency)
@@ -101,7 +118,11 @@ export default function ChatWidget() {
       // Only update the first message if it's the initial greeting
       if (prev.length === 1 && prev[0].role === 'bot') {
          // @ts-ignore
-         return [{ role: 'bot', text: t.chat?.greeting || 'Hello! How can I help you today?' }];
+         return [{ 
+           role: 'bot', 
+           text: t.chat?.greeting || 'Hello! How can I help you today?',
+           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+         }];
       }
       return prev;
     });
@@ -119,13 +140,41 @@ export default function ChatWidget() {
 
   useEffect(() => {
     scrollToBottom();
-  }, [chatHistory, isOpen, showContactForm, isLoading]);
+  }, [chatHistory, isOpen, showContactForm, isLoading, isThinking]);
+
+  // Initialization Effect
+  useEffect(() => {
+    if (isOpen && !initCalledRef.current) {
+        initCalledRef.current = true;
+        setIsInitializing(true);
+        fetch(`${config.apiBaseUrl}/api/chat/init`, { method: 'POST' })
+            .then(res => res.json())
+            .then(data => {
+                console.log("Chat initialized:", data);
+                // Add greeting if history is empty
+                setChatHistory(prev => {
+                    if (prev.length === 0) {
+                        // @ts-ignore
+                        return [{ 
+                            role: 'bot', 
+                            text: t.chat?.greeting || 'Hello! How can I help you today?',
+                            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                        }];
+                    }
+                    return prev;
+                });
+            })
+            .catch(err => console.error("Chat init failed:", err))
+            .finally(() => setIsInitializing(false));
+    }
+  }, [isOpen]);
 
   const sendMessageToBackend = async (msg: string, history: typeof chatHistory) => {
     setIsLoading(true);
+    setIsThinking(true);
     try {
       // Add a placeholder message for the bot's response
-      setChatHistory(prev => [...prev, { role: 'bot', text: '' }]);
+      // setChatHistory(prev => [...prev, { role: 'bot', text: '' }]);
       
       const response = await fetch(`${config.apiBaseUrl}${config.endpoints.chatStream}`, {
         method: 'POST',
@@ -166,17 +215,28 @@ export default function ChatWidget() {
                 
                 try {
                     const data = JSON.parse(dataStr);
+                    
                     if (data.type === 'delta' && data.text) {
+                        setIsThinking(false); // First token received, stop thinking
                         fullResponse += data.text;
                         setChatHistory(prev => {
                             const newHistory = [...prev];
                             const lastMsg = newHistory[newHistory.length - 1];
-                            if (lastMsg.role === 'bot') {
+                            if (lastMsg && lastMsg.role === 'bot') {
                                 lastMsg.text = fullResponse;
+                                return newHistory;
+                            } else {
+                                return [...newHistory, { 
+                                    role: 'bot', 
+                                    text: fullResponse,
+                                    timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                                }];
                             }
-                            return newHistory;
                         });
+                    } else if (data.type === 'user_update' && data.name) {
+                        setUserName(data.name);
                     } else if (data.type === 'final' && data.text) {
+                        setIsThinking(false);
                         // "final" event contains the final confirmation text from tool execution
                         // We should append this to the chat history or replace the last message
                         // Since 'delta' might have streamed partial text, but 'final' from tool execution often comes AFTER all deltas
@@ -189,10 +249,16 @@ export default function ChatWidget() {
                              setChatHistory(prev => {
                                 const newHistory = [...prev];
                                 const lastMsg = newHistory[newHistory.length - 1];
-                                if (lastMsg.role === 'bot') {
+                                if (lastMsg && lastMsg.role === 'bot') {
                                     lastMsg.text = fullResponse;
+                                    return newHistory;
+                                } else {
+                                    return [...newHistory, { 
+                                        role: 'bot', 
+                                        text: fullResponse,
+                                        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                                    }];
                                 }
-                                return newHistory;
                             });
                         }
                     } else if (data.type === 'tool_call') {
@@ -211,10 +277,16 @@ export default function ChatWidget() {
                          setChatHistory(prev => {
                             const newHistory = [...prev];
                             const lastMsg = newHistory[newHistory.length - 1];
-                            if (lastMsg.role === 'bot') {
+                            if (lastMsg && lastMsg.role === 'bot') {
                                 lastMsg.text = fullResponse;
+                                return newHistory;
+                            } else {
+                                return [...newHistory, { 
+                                    role: 'bot', 
+                                    text: fullResponse,
+                                    timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                                }];
                             }
-                            return newHistory;
                         });
                     }
                 } catch (e) {
@@ -230,14 +302,16 @@ export default function ChatWidget() {
 
     } catch (error) {
       console.error('Chat Error:', error);
-      // Remove the empty bot message if it exists
-      setChatHistory(prev => prev.filter(msg => msg.text !== ''));
+      // Remove the empty bot message if it exists (not added anymore, but check anyway)
+      // setChatHistory(prev => prev.filter(msg => msg.text !== ''));
       setChatHistory(prev => [...prev, { 
         role: 'bot', 
-        text: `Sorry, I am having trouble connecting to the server. Error: ${error instanceof Error ? error.message : String(error)}` 
+        text: `Sorry, I am having trouble connecting to the server. Error: ${error instanceof Error ? error.message : String(error)}`,
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       }]);
     } finally {
       setIsLoading(false);
+      setIsThinking(false);
     }
   };
 
@@ -247,7 +321,11 @@ export default function ChatWidget() {
 
     const userMsg = message;
     // Add user message immediately
-    setChatHistory(prev => [...prev, { role: 'user', text: userMsg }]);
+    setChatHistory(prev => [...prev, { 
+      role: 'user', 
+      text: userMsg,
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    }]);
     setMessage('');
     
     // Send to backend
@@ -262,7 +340,8 @@ export default function ChatWidget() {
     
     setChatHistory(prev => [...prev, { 
         role: 'user', 
-        text: infoMsg
+        text: infoMsg,
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     }]);
     
     // Send to backend
@@ -311,6 +390,13 @@ export default function ChatWidget() {
               </div>
               <div className="flex gap-2">
                  <button 
+                    onClick={handleDownloadChat} 
+                    className="p-1 hover:bg-white/20 rounded transition-colors"
+                    title="Download Chat"
+                 >
+                  <Download size={20} />
+                </button>
+                 <button 
                     onClick={handleClearHistory} 
                     className="p-1 hover:bg-white/20 rounded transition-colors"
                     title="Clear History"
@@ -324,31 +410,78 @@ export default function ChatWidget() {
             </div>
 
             {/* Messages */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50">
+            <div className="flex-1 overflow-y-auto p-4 space-y-6 bg-gray-50">
+              {/* Initialization State - Only show if history is empty */}
+              {isInitializing && chatHistory.length === 0 && (
+                  <div className="flex flex-col items-center justify-center py-8 space-y-3 opacity-70">
+                      <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                      <span className="text-xs text-gray-500 font-medium">Initializing AI Assistant...</span>
+                  </div>
+              )}
+
               {chatHistory.map((msg, index) => (
                 <div
                   key={index}
-                  className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                  className={`flex items-start gap-3 ${msg.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}
                 >
-                  <div
-                    className={`max-w-[80%] p-3 rounded-2xl text-sm ${
-                      msg.role === 'user'
-                        ? 'bg-blue-600 text-white rounded-br-none'
-                        : 'bg-white text-gray-800 border border-gray-200 rounded-bl-none shadow-sm'
-                    }`}
-                  >
-                    {msg.role === 'user' ? (
-                        msg.text
-                    ) : (
-                        <div className="markdown-content text-sm">
-                            <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                                {msg.text}
-                            </ReactMarkdown>
-                        </div>
-                    )}
+                  {/* Avatar */}
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 shadow-sm ${
+                      msg.role === 'user' ? 'bg-blue-100 text-blue-600' : 'bg-white text-indigo-600 border border-indigo-100'
+                  }`}>
+                      {msg.role === 'user' ? <User size={16} /> : <Bot size={18} />}
+                  </div>
+
+                  <div className={`flex flex-col max-w-[80%] ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
+                      {/* Name Label */}
+                      <span className="text-[10px] text-gray-400 mb-1 px-1">
+                          {msg.role === 'user' ? userName : 'JWL Assistant'}
+                      </span>
+                      
+                      {/* Bubble */}
+                      <div
+                        className={`p-3 rounded-2xl text-sm shadow-sm ${
+                          msg.role === 'user'
+                            ? 'bg-blue-600 text-white rounded-tr-none'
+                            : 'bg-white text-gray-800 border border-gray-100 rounded-tl-none'
+                        }`}
+                      >
+                        {msg.role === 'user' ? (
+                            msg.text
+                        ) : (
+                            <div className="markdown-content text-sm">
+                                <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                                    {msg.text}
+                                </ReactMarkdown>
+                            </div>
+                        )}
+                      </div>
+                      
+                      {/* Timestamp */}
+                      {msg.timestamp && (
+                          <span className={`text-[10px] text-gray-400 mt-1 px-1 ${msg.role === 'user' ? 'text-right' : 'text-left'}`}>
+                              {msg.timestamp}
+                          </span>
+                      )}
                   </div>
                 </div>
               ))}
+              
+              {/* Thinking Indicator */}
+              {isThinking && (
+                 <div className="flex items-start gap-3">
+                    <div className="w-8 h-8 rounded-full bg-white text-indigo-600 border border-indigo-100 flex items-center justify-center shrink-0 shadow-sm">
+                        <Bot size={18} />
+                    </div>
+                    <div className="flex flex-col items-start max-w-[80%]">
+                        <span className="text-[10px] text-gray-400 mb-1 px-1">JWL Assistant</span>
+                        <div className="bg-white border border-gray-100 p-3 rounded-2xl rounded-tl-none shadow-sm flex items-center gap-1">
+                             <div className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce [animation-delay:-0.3s]" />
+                             <div className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce [animation-delay:-0.15s]" />
+                             <div className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" />
+                        </div>
+                    </div>
+                 </div>
+              )}
               
               {/* Contact Form Section */}
               {showContactForm && (

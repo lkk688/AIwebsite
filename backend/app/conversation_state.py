@@ -123,14 +123,35 @@ def update_state_from_messages(state: ConversationState, messages: List[Dict[str
     if email_match:
         state.slots["email"] = email_match.group(0)
         
-    # Extract potential name (very naive)
-    name_match = re.search(r"(?:my name is|i am) ([A-Z][a-z]+(?: [A-Z][a-z]+)?)", text_combined, re.IGNORECASE)
+    # Extract potential name (improved)
+    # 1. "Name: X"
+    name_match = re.search(r"(?:name|contact)[\s]*[:\-is]+[\s]*([A-Z][a-zA-Z]+(?: [A-Z][a-zA-Z]+)?)", text_combined, re.IGNORECASE)
     if name_match:
         state.slots["name"] = name_match.group(1)
+    else:
+        # 2. "I am X", "My name is X"
+        name_match = re.search(r"(?:my name is|i am) ([A-Z][a-zA-Z]+(?: [A-Z][a-zA-Z]+)?)", text_combined, re.IGNORECASE)
+        if name_match:
+            state.slots["name"] = name_match.group(1)
         
-    # Confirm send
-    if re.search(r"(confirm|send it|yes please)", text_combined, re.IGNORECASE):
+    # Confirm send - Only check the LATEST user message to avoid sticky state
+    # We shouldn't use text_combined for this, as it includes history.
+    last_user_msg = ""
+    for m in reversed(messages):
+        if m.get("role") == "user":
+            last_user_msg = m.get("text", "")
+            break
+            
+    if re.search(r"(confirm|send it|yes|ok|sure|please do)", last_user_msg, re.IGNORECASE):
         state.slots["confirm_send"] = True
+    else:
+        # If the user says something else (like a new question), reset confirmation
+        # This prevents "What else can you do?" from being treated as confirmation state
+        state.slots["confirm_send"] = False
+        
+    # Reset confirm_send if user says "thank you" or indicates completion (redundant but safe)
+    if re.search(r"(thank you|thanks|done|finished|bye)", last_user_msg, re.IGNORECASE):
+        state.slots["confirm_send"] = False
 
     # Update recent turns (keep last 20)
     state.recent_turns = messages[-20:]

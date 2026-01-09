@@ -286,6 +286,18 @@ class ProductRAG:
             out.append({"id": p.get("id"), "score": score})
         return out
 
+    def get_product_by_id(self, product_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Direct lookup by ID.
+        """
+        if not product_id:
+            return None
+        pid = _norm(product_id)
+        for p in self.products:
+            if _norm(p.get("id", "")) == pid:
+                return p
+        return None
+
 
 # Singleton management
 _rag_instance: Optional[ProductRAG] = None
@@ -321,9 +333,29 @@ def build_rag_context(query: str, locale: str, k: int = 5) -> Dict[str, Any]:
         tags = h.get("tags", [])
         desc = _get_locale_text(h, "description", locale)
         
+        # Include variants info if available
+        variants = h.get("variants", [])
+        variants_info = f"variants_count={len(variants)}"
+        if variants:
+             # Add simple summary of variants, e.g. colors
+             # Assuming variant has 'name' or 'color' or 'en'/'zh' keys based on locale
+             # The JSON structure shows variants as:
+             # { "key": "army-green", "sku": "...", "en": "Army Green", "zh": "军绿色" }
+             
+             v_names = []
+             for v in variants[:8]:
+                 # Try to get localized name first, then fallback to 'name', then 'key'
+                 val = v.get(locale) or v.get("en") or v.get("name") or v.get("key") or "v"
+                 v_names.append(str(val))
+                 
+             variants_info += f" examples={v_names}"
+             if len(variants) > 8:
+                 variants_info += "..."
+
         lines.append(
             f"- id={pid} slug={slug} name={name}\n"
             f"  category={cat} tags={tags}\n"
+            f"  {variants_info}\n"
             f"  desc={desc[:settings.desc_max_len]}"
         )
     

@@ -208,6 +208,20 @@ export const translations = {
     },
     footer: {
       rights: websiteInfoData.footer.rights.en,
+    },
+    chat: {
+      title: websiteInfoData.chat.title.en,
+      assistantName: websiteInfoData.chat.assistantName.en,
+      greeting: websiteInfoData.chat.greeting.en,
+      askContact: websiteInfoData.chat.askContact.en,
+      finalResponse: websiteInfoData.chat.finalResponse.en,
+      form: {
+        title: websiteInfoData.chat.form.title.en,
+        emailPlaceholder: websiteInfoData.chat.form.emailPlaceholder.en,
+        phonePlaceholder: websiteInfoData.chat.form.phonePlaceholder.en,
+        submitButton: websiteInfoData.chat.form.submitButton.en,
+      },
+      inputPlaceholder: websiteInfoData.chat.inputPlaceholder.en,
     }
   },
   zh: {
@@ -370,6 +384,7 @@ export const translations = {
     },
     chat: {
       title: websiteInfoData.chat.title.zh,
+      assistantName: websiteInfoData.chat.assistantName.zh,
       greeting: websiteInfoData.chat.greeting.zh,
       askContact: websiteInfoData.chat.askContact.zh,
       finalResponse: websiteInfoData.chat.finalResponse.zh,

@@ -9,7 +9,7 @@ from typing import List, Optional
 def sha256_text(s: str) -> str:
     return hashlib.sha256(s.encode("utf-8")).hexdigest()
 
-DB_FILE = os.environ.get("INQUIRIES_DB_FILE", "inquiries.db")
+DB_FILE = os.environ.get("INQUIRIES_DB_FILE", "main.db")
 
 
 def get_conn():
@@ -68,8 +68,80 @@ def init_db():
         """
     )
 
+    # ✅ 新增：Users table for admin auth
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT NOT NULL UNIQUE,
+            hashed_password TEXT NOT NULL,
+            is_active BOOLEAN DEFAULT 1,
+            is_superuser BOOLEAN DEFAULT 0,
+            created_at_utc TEXT NOT NULL
+        );
+        """
+    )
+
     conn.commit()
     conn.close()
+
+
+def get_all_inquiries(limit: int = 100, offset: int = 0) -> List[Dict[str, Any]]:
+    conn = get_conn()
+    conn.row_factory = sqlite3.Row
+    cur = conn.cursor()
+    cur.execute(
+        "SELECT * FROM inquiries ORDER BY created_at_utc DESC LIMIT ? OFFSET ?",
+        (limit, offset),
+    )
+    rows = cur.fetchall()
+    conn.close()
+    return [dict(row) for row in rows]
+
+
+
+def get_user_by_username(username: str):
+    conn = get_conn()
+    conn.row_factory = sqlite3.Row
+    cur = conn.cursor()
+    cur.execute("SELECT * FROM users WHERE username = ?", (username,))
+    user = cur.fetchone()
+    conn.close()
+    if user:
+        return dict(user)
+    return None
+
+def create_user(username: str, hashed_password: str, is_superuser: bool = False):
+    conn = get_conn()
+    ts = datetime.now(timezone.utc).isoformat()
+    cur = conn.cursor()
+    try:
+        cur.execute(
+            "INSERT INTO users (username, hashed_password, is_superuser, created_at_utc) VALUES (?, ?, ?, ?)",
+            (username, hashed_password, 1 if is_superuser else 0, ts)
+        )
+        conn.commit()
+        return True
+    except sqlite3.IntegrityError:
+        return False
+    finally:
+        conn.close()
+
+
+def update_user_password(username: str, hashed_password: str) -> bool:
+    conn = get_conn()
+    cur = conn.cursor()
+    try:
+        cur.execute(
+            "UPDATE users SET hashed_password = ? WHERE username = ?",
+            (hashed_password, username),
+        )
+        conn.commit()
+        return cur.rowcount > 0
+    except Exception:
+        return False
+    finally:
+        conn.close()
 
 
 def insert_inquiry(

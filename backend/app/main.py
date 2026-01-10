@@ -5,7 +5,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from app.core.logging import setup_logging
 from app.adapters.db import init_db
-from app.api.routes import chat, general
+from app.adapters import db
+from app.core import security
+from app.api.routes import chat, general, admin, auth
 
 setup_logging()
 logger = logging.getLogger("jwl.main")
@@ -14,6 +16,16 @@ app = FastAPI(title="JWL Travel Gear API")
 
 # Initialize DB
 init_db()
+
+# Create default admin if not exists
+try:
+    existing_admin = db.get_user_by_username("admin")
+    if not existing_admin:
+        hashed_pw = security.get_password_hash("admin123")
+        db.create_user("admin", hashed_pw, is_superuser=True)
+        logger.info("Created default admin user: admin / admin123")
+except Exception as e:
+    logger.error(f"Failed to check/create admin user: {e}")
 
 # Configure CORS
 app.add_middleware(
@@ -26,7 +38,9 @@ app.add_middleware(
 
 # Include Routers
 app.include_router(general.router, prefix="/api", tags=["General"])
+app.include_router(auth.router, prefix="/api/auth", tags=["Auth"])
 app.include_router(chat.router, prefix="/api/chat", tags=["Chat"])
+app.include_router(admin.router, prefix="/api/admin", tags=["Admin"])
 
 @app.on_event("startup")
 async def startup_event():

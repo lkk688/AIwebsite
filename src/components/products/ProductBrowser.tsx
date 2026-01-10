@@ -315,7 +315,8 @@ export default function ProductBrowser({ initialCategory }: ProductBrowserProps)
                 : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'
             }`}
           >
-            ALL
+            {/* @ts-ignore */}
+            {t.products.allCategory || 'ALL'}
           </button>
           {categories.map(cat => (
             <button

@@ -30,9 +30,9 @@ export const images = {
     factory: websiteInfoData.about.image,
   },
   facility: {
-    capacity: websiteInfoData.facility.features.capacity.image,
-    machinery: websiteInfoData.facility.features.machinery.image,
-    inspection: websiteInfoData.facility.features.inspection.image,
+    capacity: websiteInfoData.facility.features.capacity.images,
+    machinery: websiteInfoData.facility.features.machinery.images,
+    inspection: websiteInfoData.facility.features.inspection.images,
   },
   certifications: certImages,
   products: {

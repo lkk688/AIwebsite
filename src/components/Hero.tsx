@@ -1,8 +1,10 @@
 'use client';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useChat } from '@/contexts/ChatContext';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowRight, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ArrowRight, ChevronLeft, ChevronRight, MessageCircle } from 'lucide-react';
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
 
 type SlideLayout = 'left' | 'center' | 'right';
 
@@ -10,6 +12,7 @@ import { images } from '@/lib/images';
 
 export default function Hero() {
   const { t } = useLanguage();
+  const { setIsOpen } = useChat();
   const [currentSlide, setCurrentSlide] = useState(0);
 
   const slideKeys = Object.keys(images.hero);
@@ -102,18 +105,22 @@ export default function Hero() {
             </p>
             
             <div className={`flex flex-col sm:flex-row gap-4 ${slides[currentSlide].layout === 'right' ? 'flex-row-reverse' : ''}`}>
-              <a
-                href="#products"
+              <Link
+                href="/products/all"
                 className="px-8 py-4 bg-white text-gray-900 hover:bg-gray-100 rounded-full text-lg font-bold transition-all flex items-center justify-center gap-2 shadow-xl hover:scale-105"
               >
                 {t.hero.cta} <ArrowRight size={20} />
-              </a>
-              <a
-                href="#contact"
-                className="px-8 py-4 bg-transparent border-2 border-white hover:bg-white/10 backdrop-blur-md rounded-full text-white text-lg font-bold transition-all flex items-center justify-center hover:scale-105"
+              </Link>
+              <button
+                type="button"
+                onClick={() => {
+                  console.log('Opening chat widget...');
+                  setIsOpen(true);
+                }}
+                className="px-8 py-4 bg-transparent border-2 border-white hover:bg-white/10 backdrop-blur-md rounded-full text-white text-lg font-bold transition-all flex items-center justify-center gap-2 hover:scale-105"
               >
-                {t.hero.contact}
-              </a>
+                {t.hero.contact} <MessageCircle size={20} />
+              </button>
             </div>
           </motion.div>
         </AnimatePresence>

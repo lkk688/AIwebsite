@@ -473,7 +473,8 @@ export default function ChatWidget() {
                         <Bot size={18} />
                     </div>
                     <div className="flex flex-col items-start max-w-[80%]">
-                        <span className="text-[10px] text-gray-400 mb-1 px-1">JWL Assistant</span>
+                        {/* @ts-ignore */}
+                        <span className="text-[10px] text-gray-400 mb-1 px-1">{t.chat?.assistantName || 'JWL Assistant'}</span>
                         <div className="bg-white border border-gray-100 p-3 rounded-2xl rounded-tl-none shadow-sm flex items-center gap-1">
                              <div className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce [animation-delay:-0.3s]" />
                              <div className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce [animation-delay:-0.15s]" />

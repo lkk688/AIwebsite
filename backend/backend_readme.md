@@ -19,6 +19,8 @@ backend/
 │   │   ├── config.py           # Centralized Configuration (Settings)
 │   │   ├── logging.py          # Logging Setup & SessionLogger
 │   │   └── services.py         # Dependency Injection Container (Singletons)
+│   ├── products/               # Product Domain
+│   │   └── resolve.py          # Product Resolution Logic (ID/Slug matching)
 │   ├── services/               # Business Logic Layer
 │   │   ├── chat/               # Chat Domain Logic
 │   │   │   ├── service.py      # Main ChatService (Orchestrator)
@@ -36,9 +38,11 @@ backend/
 │   │   ├── db.py               # Database Adapter
 │   │   └── email.py            # Email Service Adapter (AWS SES)
 │   └── tools/                  # Agent Tools
+│       ├── base.py             # Tool Context Definition
 │       ├── registry.py         # Tool Definitions & Configuration
 │       ├── dispatcher.py       # Tool Execution Dispatcher
-│       └── handlers.py         # Tool Implementation Handlers
+│       ├── handlers.py         # Tool Implementation Handlers
+│       └── schemas.py          # Tool Schema Validation
 ├── logs/                       # Application Logs
 ├── .env                        # Environment Variables
 └── backend_readme.md           # This file
@@ -148,6 +152,11 @@ Currently, the app uses a lightweight file-based store (`DataStore`) and SQLite 
 ### **Start Server**
 ```bash
 LOG_LEVEL=DEBUG uvicorn app.main:app --reload --port 8000
+```
+
+Run Test:
+```bash
+python -m pytest backend/tests/test_chat_acceptance.py
 ```
 
 ### **Directory Paths**

@@ -33,6 +33,11 @@ class ChatService:
       - Assembles the final prompt for the LLM, including system instructions and context.
       - Supports multi-model configuration (OpenAI, DeepSeek, Qwen, etc.).
     """
+    def _get_ui_label(self, key: str, locale: str, default: str) -> str:
+        labels = self.config.get("ui_labels", {})
+        label_obj = labels.get(key, {})
+        return label_obj.get(locale) or label_obj.get("en") or default
+
     def _format_slots(self, slots: Dict[str, Any], locale: str) -> str:
         """
         Compact conversation slots into a string for LLM injection.
@@ -47,14 +52,19 @@ class ChatService:
         confirm_slot = state_cfg.get("confirmation_slot", "confirm_send")
         
         # keep only stable keys
-        keep_keys = ["name", "email", "quantity", "product_id", confirm_slot]
+        constants = self.config.get("constants", {})
+        keep_keys = constants.get("summary_slots", ["name", "email", "quantity", "product_id"])
+        if confirm_slot not in keep_keys:
+            keep_keys.append(confirm_slot)
+            
         keep = {}
         for k in keep_keys:
             if k in slots and slots[k] not in (None, "", False):
                 keep[k] = slots[k]
         if not keep:
             return ""
-        title = "对话关键信息(自动提取)" if locale == "zh" else "Conversation Slots (auto-extracted)"
+            
+        title = self._get_ui_label("conversation_slots", locale, "Conversation Slots (auto-extracted)")
         return f"{title}:\n{json.dumps(keep, ensure_ascii=False)}"
 
     def __init__(self, data_store, embedder):
@@ -78,11 +88,24 @@ class ChatService:
         
         # Setup Dispatcher and register handlers
         self.dispatcher = ToolDispatcher(self.tool_registry)
-        self.dispatcher.register("product_search", handle_product_search)
-        self.dispatcher.register("send_inquiry", handle_send_inquiry)
-        self.dispatcher.register("get_product_details", handle_get_product_details)
-        # Register price_estimate if implemented
-        # self.dispatcher.register("price_estimate", handle_price_estimate)
+        
+        # Map handler keys (from config) to python functions
+        # This allows config to specify "handler": "product_search" and we map it here.
+        self.handler_map = {
+            "product_search": handle_product_search,
+            "send_inquiry": handle_send_inquiry,
+            "get_product_details": handle_get_product_details,
+            # "price_estimate": handle_price_estimate
+        }
+        
+        # Register handlers based on config
+        tools_conf = self.config.get("tools", {})
+        for tool_name, tool_conf in tools_conf.items():
+            handler_key = tool_conf.get("handler")
+            if handler_key and handler_key in self.handler_map:
+                self.dispatcher.register(tool_name, self.handler_map[handler_key])
+            else:
+                logger.warning(f"Tool '{tool_name}' has unknown handler '{handler_key}'")
 
         # intent router (config-driven; fallback to defaults)
         self.intent_router = EmbeddingIntentRouter(self.embedder, self.config)
@@ -101,10 +124,13 @@ class ChatService:
             "tools": {},
             "intent_examples": {},
             "intent_mapping": {},
+            "ui_labels": {},
         }
         try:
             project_root = os.path.dirname(BASE_DIR)
-            config_path = os.path.join(project_root, "src", "data", "chat_config.json")
+            # Use env var for config path
+            config_rel_path = os.getenv("CHAT_CONFIG_PATH", "src/data/chat_config.json")
+            config_path = os.path.join(project_root, config_rel_path)
 
             if os.path.exists(config_path):
                 with open(config_path, "r", encoding="utf-8") as f:
@@ -260,16 +286,110 @@ class ChatService:
 
         return f"{role}\n\n{strict}\n\n{general}\n\n{output}".strip()
 
-    def _manage_state(self, conversation_id: Optional[str], incoming_msgs: List[Dict[str, str]], locale: str) -> Tuple[List[Dict[str, str]], str, Dict[str, Any]]:
+    def _update_slots_rules(self, state, last_msg_text: str):
+        """
+        Deterministic state machine for slot filling and confirmation.
+        Also updates active_product confidence.
+        """
+        text = (last_msg_text or "").lower().strip()
+        
+        # 1. Confirmation Gating
+        is_confirmed = self.is_confirm_send(text, state.locale)
+        
+        state_cfg = self.config.get("state_management", {})
+        confirm_slot = state_cfg.get("confirmation_slot", "confirm_send")
+
+        if is_confirmed:
+            state.slots[confirm_slot] = True
+            logger.info(f"State Machine: {confirm_slot} set to True based on '{text}'")
+            
+        # 2. Active Product Confidence Logic (Heuristic)
+        # If user mentions specific product model or ID, boost confidence to 'strong'
+        # This is a simple heuristic; robust solution needs entity extraction or LLM helper.
+        # For now, if we have an active_product and the user says "this one" or "yes", maybe keep it?
+        # If user mentions a NEW product ID (e.g. jwl-...), we should switch.
+        
+        # Simple heuristic: If text contains a known product ID pattern, switch active product?
+        # That logic is currently in `update_state_from_messages` via regex.
+        # Here we just manage confidence.
+        
+        # If regex found a product_id in THIS turn (checked in update_state_from_messages),
+        # then confidence should be STRONG.
+        pass # Confidence update logic is better placed after update_state_from_messages or inside it.
+
+    def is_confirm_send(self, text: str, locale: str) -> bool:
+        """
+        Deterministic confirmation check.
+        Returns True if the user explicitly confirms sending.
+        """
+        text = (text or "").lower().strip()
+        
+        # Load confirmation keywords from config
+        state_cfg = self.config.get("state_management", {})
+        conf_keys = state_cfg.get("confirmation_keywords", {})
+        
+        strong_confirm = []
+        weak_confirm = []
+        
+        if isinstance(conf_keys, dict):
+            if "strong" in conf_keys:
+                for lang in conf_keys["strong"]:
+                    strong_confirm.extend(conf_keys["strong"][lang])
+                for lang in conf_keys.get("weak", {}):
+                    weak_confirm.extend(conf_keys["weak"][lang])
+        elif isinstance(conf_keys, list):
+             strong_confirm = conf_keys
+        
+        if any(k in text for k in strong_confirm):
+            return True
+            
+        # Weak confirm check: strictly requires "发送" or "send" context if using weak words
+        # Or if the keyword itself is quite strong but listed in weak?
+        # Let's simplify: Only strong keywords trigger immediate confirmation.
+        # OR: weak keywords + "send" context
+        
+        if any(k in text for k in weak_confirm):
+            if "发送" in text or "send" in text:
+                return True
+                
+        return False
+
+    def _manage_state(self, conversation_id: Optional[str], incoming_msgs: List[Dict[str, str]], locale: str) -> Tuple[List[Dict[str, str]], str, Dict[str, Any], Optional[Dict[str, str]]]:
         """
         Updates conversation state (history, summary, slots) and returns the latest view.
         """
         if conversation_id:
             st = self.state_store.get_or_create(conversation_id, locale=locale)
+            
+            # Apply rules on the NEWEST user message
+            new_user_msgs = [m for m in incoming_msgs if m.get("role") == "user"]
+            
+            # First, update state from messages (regex extraction, history append)
             st = update_state_from_messages(st, incoming_msgs, config=self.config)
+            
+            # Check if a new product_id was extracted in this turn
+            consts = self.config.get("constants", {})
+            slots_map = consts.get("slots", {})
+            
+            pid_key = slots_map.get("product_id", "product_id")
+            slug_key = slots_map.get("product_slug", "product_slug")
+            
+            last_pid = st.slots.get(pid_key)
+            # If product_id changed or set, mark confidence strong
+            if last_pid:
+                 # Check if it differs from active_product
+                 if not st.active_product or st.active_product.get("id") != last_pid:
+                     # New product detected via regex -> Strong
+                     st.active_product = {"id": last_pid, "slug": st.slots.get(slug_key, last_pid)}
+                     st.product_confidence = "strong"
+                     logger.info(f"State: active_product switched to {last_pid} (Confidence: strong)")
+            
+            if new_user_msgs:
+                self._update_slots_rules(st, new_user_msgs[-1].get("text", ""))
+                
             self.state_store.upsert(st)
-            return st.recent_turns[:], st.summary or "", st.slots or {}
-        return incoming_msgs, "", {}
+            return st.recent_turns[:], st.summary or "", st.slots or {}, st.active_product
+        return incoming_msgs, "", {}, None
 
     def persist_turn(self, conversation_id: str, role: str, content: str, locale: str = "en") -> None:
         """
@@ -318,9 +438,19 @@ class ChatService:
         state_cfg = self.config.get("state_management", {})
         confirm_slot = state_cfg.get("confirmation_slot", "confirm_send")
         
+        # Constants
+        consts = self.config.get("constants", {})
+        slots_map = consts.get("slots", {})
+        intents_map = consts.get("intents", {})
+        
+        name_key = slots_map.get("name", "name")
+        email_key = slots_map.get("email", "email")
+        msg_key = slots_map.get("message", "message")
+        pid_key = slots_map.get("product_id", "product_id")
+
         if slots.get(confirm_slot) is True:
             stage = confirm_slot
-        elif slots.get("name") and slots.get("email") and (slots.get("message") or slots.get("product_id")):
+        elif slots.get(name_key) and slots.get(email_key) and (slots.get(msg_key) or slots.get(pid_key)):
              pass
 
         intent = "general"
@@ -471,46 +601,6 @@ class ChatService:
             logger.error("KB RAG retrieval failed: %s", e)
             return "", []
 
-    # def _retrieve_context(self, query: str, locale: str, is_tech: bool, is_broad: bool, slots: Dict[str, Any]) -> Tuple[str, str, Dict[str, Any]]:
-    #     """
-    #     Orchestrates RAG retrieval (Product + KB) based on routing logic.
-    #     """
-    #     # Logic from original prepare_llm_messages regarding prod_k, kb_k
-    #     prod_k = 3
-    #     kb_k = 3
-    #     if is_broad:
-    #         prod_k = 3
-    #         kb_k = 1
-    #     if is_tech:
-    #         prod_k = 2
-    #         kb_k = 3
-            
-    #     rag_info = build_rag_context(query=query, locale=locale, k=prod_k)
-    #     prod_ctx = rag_info.get("context", "")
-    #     rag_mode = rag_info.get("mode", "none")
-        
-    #     # Refine routing
-    #     if rag_mode == "exact":
-    #          # exact product => keep KB minimal unless it's clearly technical
-    #          if not is_tech:
-    #             kb_k = 0
-    #          else:
-    #             kb_k = 1
-        
-    #     # If user is confirming send or has full info, reduce KB context to zero to focus on action
-    #     if slots.get("confirm_send") or (slots.get("name") and slots.get("email") and slots.get("product_id")):
-    #          kb_k = 0
-    #          prod_k = 1
-
-    #     comp_ctx, kb_hits_summary = self.build_company_context(query, locale, k=kb_k)
-        
-    #     debug_info = {
-    #         "rag_mode": rag_mode,
-    #         "hits_summary": rag_info.get("hits_summary", []),
-    #         "kb_hits": kb_hits_summary
-    #     }
-    #     return prod_ctx, comp_ctx, debug_info
-
     #add new route_plan
     def _retrieve_context(
         self,
@@ -518,6 +608,7 @@ class ChatService:
         locale: str,
         route_plan: Dict[str, Any],
         slots: Dict[str, Any],
+        active_product: Optional[Dict[str, str]] = None
     ) -> Tuple[str, str, Dict[str, Any]]:
         """
         Orchestrates RAG retrieval (Product + KB) based on routing plan.
@@ -526,33 +617,96 @@ class ChatService:
         prod_k = int(route_plan.get("product_k", 3))
         kb_k = int(route_plan.get("kb_k", 3))
 
-        # product rag
-        rag_info = build_rag_context(
-            query=query,
-            locale=locale,
-            k=prod_k,
-            #desc_max=120, 
-        )
-        prod_ctx = rag_info.get("context", "")
-        rag_mode = rag_info.get("mode", "none")
+        rag_mode = "none"
+        prod_ctx = ""
+        hits_summary = []
+        
+        consts = self.config.get("constants", {})
+        intents_map = consts.get("intents", {})
+        stages_map = consts.get("stages", {})
+        tool_names = consts.get("tool_names", {})
+        
+        intent_quote = intents_map.get("quote_order", "quote_order")
+        intent_broad = intents_map.get("broad_product", "broad_product")
+        intent_rec = intents_map.get("recommendation", "recommendation")
+        intent_search = intents_map.get("product_search", "product_search")
+        
+        stage_confirm = stages_map.get("confirm_send", "confirm_send")
 
-        # [Constraint] If we have a selected product and user didn't switch (mode!=exact) and not broad search,
-        # we lock context to that product to avoid unrelated search results.
-        last_pid = slots.get("product_id")
-        if last_pid and rag_mode != "exact" and not route_plan.get("is_broad") and prod_k > 0:
-             # Try to fetch the specific product
+        # [Drift-proof Logic]
+        # Decide whether to use active_product (Context Lock) or Search (TopK)
+        # If product_confidence is "strong", we enforce locking more aggressively.
+        # But we still allow "broad_product" or "search" intents to break the lock if user explicitly asks.
+        
+        use_active_product = False
+        if active_product:
+             # Check confidence (optional, if we track it in state/active_product dict)
+             # active_product is currently Dict[str, str], doesn't have confidence.
+             # But we can assume if it's set, it's at least stick-worthy.
+             
+             # Intent-based Locking
+             # Lock if: quote/order, confirm, technical questions, or general (implied context)
+             if route_plan.get("stage") == stage_confirm or route_plan.get("intent") in (intent_quote, "technical"):
+                 use_active_product = True
+             # If intent is general and NOT explicitly search/broad
+             elif not route_plan.get("is_broad") and route_plan.get("intent") != intent_search:
+                 use_active_product = True
+             
+             # Unlock if: user explicitly asks for search, broad, or recommendation
+             if route_plan.get("is_broad") or route_plan.get("intent") in (intent_broad, intent_rec, intent_search):
+                 use_active_product = False
+                 logger.info("Context Lock Released: User asking for broad/search.")
+        
+        # [Strict KB Routing for Company Info]
+        # If intent is "company_intro" or related, force product_k=0 to avoid product noise
+        if route_plan.get("intent") in ("company_intro", "capabilities", "service"):
+             prod_k = 0
+             kb_k = max(kb_k, 3) # Ensure we get enough KB
+             use_active_product = False # Don't lock product for company questions
+
+        
+        if use_active_product and active_product:
              try:
+                 pid = active_product["id"]
                  rag = get_product_rag()
-                 p = rag.get_product_by_id(last_pid)
+                 p = rag.get_product_by_id(pid)
                  if p:
-                     # Override RAG context
-                     title = "[Current Focus Product]" if locale != "zh" else "[当前聚焦产品]"
+                     title = self._get_ui_label("current_product", locale, "[Current Focus Product]")
+                     # Only show details if user asks? Or always show summary?
+                     # format_product_context usually shows full details.
                      prod_ctx = format_product_context([p], locale, title_override=title)
                      rag_mode = "context_lock"
-                     rag_info["hits_summary"] = [{"id": p.get("id"), "slug": p.get("slug"), "name": str(p.get("name", {}))}]
-                     logger.info(f"Context locked to product_id={last_pid}")
+                     hits_summary = [{"id": p.get("id"), "slug": p.get("slug"), "name": str(p.get("name", {}))}]
+                     logger.info(f"Context locked to active_product={pid}")
              except Exception as e:
-                 logger.error(f"Failed to lock context to product {last_pid}: {e}")
+                 logger.error(f"Failed to lock context to active_product {active_product}: {e}")
+        else:
+            # Standard RAG
+            if prod_k > 0:
+                rag_info = build_rag_context(
+                    query=query,
+                    locale=locale,
+                    k=prod_k,
+                )
+                prod_ctx = rag_info.get("context", "")
+                rag_mode = rag_info.get("mode", "none")
+                hits_summary = rag_info.get("hits_summary", [])
+                
+                # [Legacy] Fallback lock if slots have product_id but active_product was None?
+                pid_key = consts.get("slots", {}).get("product_id", "product_id")
+                last_pid = slots.get(pid_key)
+                if not active_product and last_pid and rag_mode != "exact" and not route_plan.get("is_broad"):
+                     try:
+                         rag = get_product_rag()
+                         p = rag.get_product_by_id(last_pid)
+                         if p:
+                             title = self._get_ui_label("current_product", locale, "[Current Focus Product]")
+                             prod_ctx = format_product_context([p], locale, title_override=title)
+                             rag_mode = "context_lock"
+                             hits_summary = [{"id": p.get("id"), "slug": p.get("slug"), "name": str(p.get("name", {}))}]
+                             logger.info(f"Context locked to slots.product_id={last_pid}")
+                     except Exception as e:
+                         pass
 
         # [Config Driven] Apply RAG mode overrides
         retrieval_overrides = self.config.get("retrieval_overrides", {})
@@ -570,18 +724,19 @@ class ChatService:
                 overrides = mode_overrides.get("overrides", {})
                 if "kb_k" in overrides:
                     kb_k = overrides["kb_k"]
-                if "product_k" in overrides:
-                    prod_k = overrides["product_k"]
+                # product_k override is irrelevant if we already locked or searched, 
+                # but if we haven't searched yet (prod_k=0 initially), maybe?
+                # Usually overrides reduce context (e.g. set kb_k=0 if exact match).
 
         comp_ctx, kb_hits_summary = self.build_company_context(query, locale, k=kb_k)
 
         debug_info = {
             "rag_mode": rag_mode,
-            "hits_summary": rag_info.get("hits_summary", []),
+            "hits_summary": hits_summary,
             "kb_hits": kb_hits_summary,
         }
         
-        logger.info(f"RAG Retrieval: mode={rag_mode} product_hits={len(rag_info.get('hits_summary', []))} kb_hits={len(kb_hits_summary)}")
+        logger.info(f"RAG Retrieval: mode={rag_mode} product_hits={len(hits_summary)} kb_hits={len(kb_hits_summary)}")
         
         return prod_ctx, comp_ctx, debug_info
 
@@ -592,7 +747,7 @@ class ChatService:
         # Summary
         summary_block = ""
         if summary:
-            title = "对话摘要(压缩)" if locale == "zh" else "Conversation Summary (compressed)"
+            title = self._get_ui_label("conversation_summary", locale, "Conversation Summary (compressed)")
             s = summary.strip()
             if len(s) > 900:
                 s = s[-900:]
@@ -608,7 +763,7 @@ class ChatService:
             ctx_parts.append(slots_block)
         
         if comp_ctx:
-            prefix = "公司知识库:\n" if locale == "zh" else "Knowledge Base:\n"
+            prefix = self._get_ui_label("company_kb", locale, "Knowledge Base:\n")
             ctx_parts.append(prefix + comp_ctx)
         
         if prod_ctx:
@@ -671,9 +826,24 @@ class ChatService:
             "client_response": None,
             "skip_reason": None
         }
+        
+        consts = self.config.get("constants", {})
+        tool_names = consts.get("tool_names", {})
+        slots_map = consts.get("slots", {})
+        
+        TOOL_INQUIRY = tool_names.get("send_inquiry", "send_inquiry")
+        TOOL_SEARCH = tool_names.get("product_search", "product_search")
+        TOOL_DETAILS = tool_names.get("get_product_details", "get_product_details")
+        
+        name_key = slots_map.get("name", "name")
+        email_key = slots_map.get("email", "email")
+        msg_key = slots_map.get("message", "message")
+        
+        state_cfg = self.config.get("state_management", {})
+        confirm_slot = state_cfg.get("confirmation_slot", "confirm_send")
 
         # 1. Pre-execution Checks (Specific to sensitive tools)
-        if tool_name == "send_inquiry":
+        if tool_name == TOOL_INQUIRY:
             if not allow_actions:
                 response["skip_reason"] = "allow_actions=False"
                 response["client_response"] = self.get_tool_response("confirm_needed", ctx.locale)
@@ -681,16 +851,13 @@ class ChatService:
                     ctx.session_logger.info("TOOL SKIP: allow_actions=False")
                 return response
 
-            if not (tool_args.get("name") and tool_args.get("email") and tool_args.get("message")):
+            if not (tool_args.get(name_key) and tool_args.get(email_key) and tool_args.get(msg_key)):
                 response["skip_reason"] = "missing_fields"
                 response["client_response"] = self.get_tool_response("missing_info", ctx.locale)
                 if hasattr(ctx, "session_logger") and ctx.session_logger:
                     ctx.session_logger.info("TOOL SKIP: Missing fields")
                 return response
                 
-            # Inject source for tracking
-            tool_args["source"] = "chat_tool"
-
         # 2. Execution
         if hasattr(ctx, "session_logger") and ctx.session_logger:
             ctx.session_logger.info(f"TOOL EXEC: {tool_name} Args: {json.dumps(tool_args, ensure_ascii=False)}")
@@ -718,7 +885,7 @@ class ChatService:
              response["success"] = False
              response["system_msg"] = f"System Notification: Tool '{tool_name}' failed. Error: {error_msg}"
              response["client_response"] = self.get_tool_response("failure", ctx.locale, error=error_msg)
-             if tool_name == "send_inquiry":
+             if tool_name == TOOL_INQUIRY:
                  response["ui_action"] = "send_inquiry_failed"
                  response["ui_data"] = {"inquiry_id": exec_result.get("inquiry_id"), "error": error_msg}
              
@@ -729,7 +896,38 @@ class ChatService:
         # Success handling
         response["success"] = True
         
-        if tool_name == "send_inquiry":
+        # [State Update]
+        if ctx.conversation_id:
+            try:
+                st = self.state_store.get_or_create(ctx.conversation_id, ctx.locale)
+                updated = False
+                
+                if tool_name == TOOL_DETAILS:
+                    p = exec_result.get("product")
+                    if p:
+                        st.active_product = {"id": str(p.get("id")), "slug": str(p.get("slug"))}
+                        st.product_confidence = "strong" # Explicit tool call -> Strong confidence
+                        updated = True
+                        logger.info(f"State: active_product updated to {st.active_product} (Confidence: strong)")
+                
+                elif tool_name == TOOL_INQUIRY:
+                    # Update contact slots if provided
+                    if tool_args.get(name_key): 
+                        st.slots[name_key] = tool_args[name_key]
+                        updated = True
+                    if tool_args.get(email_key): 
+                        st.slots[email_key] = tool_args[email_key]
+                        updated = True
+                    # Reset confirm_send after successful inquiry
+                    st.slots[confirm_slot] = False
+                    updated = True
+                
+                if updated:
+                    self.state_store.upsert(st)
+            except Exception as e:
+                logger.error(f"Failed to update state after tool execution: {e}")
+        
+        if tool_name == TOOL_INQUIRY:
             response["ui_action"] = "send_inquiry"
             response["ui_data"] = {"inquiry_id": exec_result["inquiry_id"], "ses": exec_result.get("ses")}
             response["system_msg"] = f"System Notification: Tool '{tool_name}' executed successfully. Inquiry ID: {exec_result['inquiry_id']}. The email HAS been sent. Please confirm to the user that it is done."
@@ -737,7 +935,7 @@ class ChatService:
             if hasattr(ctx, "session_logger") and ctx.session_logger:
                 ctx.session_logger.info(f"TOOL SUCCESS: {tool_name} ID={exec_result['inquiry_id']}")
             
-        elif tool_name == "product_search":
+        elif tool_name == TOOL_SEARCH:
             count = len(exec_result.get("results", []))
             response["ui_action"] = "product_search"
             response["ui_data"] = exec_result
@@ -745,7 +943,7 @@ class ChatService:
             # client_response is usually handled by LLM text, but for sync API we might want to return something?
             # Sync API uses LLM response.
             
-        elif tool_name == "get_product_details":
+        elif tool_name == TOOL_DETAILS:
             # Truncate for context window safety
             res_str = json.dumps(exec_result, ensure_ascii=False)
             if len(res_str) > 6000: res_str = res_str[:6000] + "...(truncated)"
@@ -780,7 +978,7 @@ class ChatService:
         
         # 1. Manage State
         incoming = self._incoming_to_dict_messages(messages)
-        turns, conv_summary, slots = self._manage_state(conversation_id, incoming, locale)
+        turns, conv_summary, slots, active_product = self._manage_state(conversation_id, incoming, locale)
         
         # 2. Build Query & Routing
         rag_query = self._build_rag_query(turns)
@@ -794,7 +992,7 @@ class ChatService:
         # or if we are not in 'confirm_send' stage, to avoid cluttering prompt.
         # But wait, we might need product details for the quote?
         # Let's trust the route_plan k values.
-        prod_ctx, comp_ctx, debug_info = self._retrieve_context(rag_query, locale, plan, slots)
+        prod_ctx, comp_ctx, debug_info = self._retrieve_context(rag_query, locale, plan, slots, active_product)
 
         # 4. Build System Prompt
         sys_prompt = self._build_system_prompt(locale)

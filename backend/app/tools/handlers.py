@@ -1,6 +1,6 @@
 import logging
 from typing import Any, Dict, List, Optional
-from .base import ToolContext
+from app.tools.base import ToolContext
 from app.services.product import search_products
 from app.adapters.db import insert_inquiry, mark_inquiry_sent, mark_inquiry_failed
 from app.core.config import settings
@@ -57,11 +57,12 @@ def handle_send_inquiry(
     message: str, 
     product_id: Optional[str] = None,
     product_slug: Optional[str] = None,
-    source: str = "chat_tool"
+    meta: Optional[Dict[str, Any]] = None
 ) -> Dict[str, Any]:
     """
     Handles sending an inquiry email + DB persistence.
     """
+    source = "chat_tool"
     logger.info(f"Tool Exec: send_inquiry name='{name}' email='{email}' pid='{product_id}' source='{source}'")
     
     # Append product info to message if present

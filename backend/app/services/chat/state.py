@@ -22,6 +22,10 @@ class ConversationState:
     summary: str = ""
     # Extracted slots (name, email, product_interest, etc.)
     slots: Dict[str, Any] = field(default_factory=dict)
+    # The actively discussed product (for context stability)
+    active_product: Optional[Dict[str, str]] = None
+    # Confidence level of active_product: 'none', 'weak', 'strong'
+    product_confidence: str = "none"
     # The last N raw messages (to keep immediate context fresh)
     recent_turns: List[Dict[str, str]] = field(default_factory=list)
     # Timestamp of last update (for TTL/LRU)
@@ -159,8 +163,6 @@ def update_state_from_messages(state: ConversationState, messages: List[Dict[str
         
     # Get config for state management
     state_cfg = (config or {}).get("state_management", {})
-    confirm_slot = state_cfg.get("confirmation_slot", "confirm_send")
-    confirm_keywords = state_cfg.get("confirmation_keywords", ["confirm", "send it", "yes", "ok", "sure", "please do"])
     completion_keywords = state_cfg.get("completion_keywords", ["thank you", "thanks", "done", "finished", "bye"])
     
     # Helper to check keywords
@@ -180,16 +182,14 @@ def update_state_from_messages(state: ConversationState, messages: List[Dict[str
             last_user_msg = m.get("text", "")
             break
             
-    if has_keyword(last_user_msg, confirm_keywords):
-        state.slots[confirm_slot] = True
-    else:
-        # If the user says something else (like a new question), reset confirmation
-        # This prevents "What else can you do?" from being treated as confirmation state
-        if state_cfg.get("reset_confirmation_on_change", True):
-            state.slots[confirm_slot] = False
+    # Note: Confirmation logic (confirm_send) has been moved to service.py (_update_slots_rules)
+    # to support complex config-driven rules (strong/weak/ask_confirm).
+    # We only handle completion reset here if needed, or better, move that to service.py too.
+    # For now, let's just remove the conflicting reset logic.
         
-    # Reset confirm_send if user says "thank you" or indicates completion (redundant but safe)
+    # Reset confirm_send if user says "thank you" or indicates completion
     if state_cfg.get("reset_confirmation_on_completion", True):
+        confirm_slot = state_cfg.get("confirmation_slot", "confirm_send")
         if has_keyword(last_user_msg, completion_keywords):
             state.slots[confirm_slot] = False
 

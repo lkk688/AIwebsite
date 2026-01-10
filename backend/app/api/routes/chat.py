@@ -71,6 +71,7 @@ async def chat(req: ChatRequest):
     messages = payload["messages"]
     tools = payload["tools"]
     slots = payload.get("slots", {})
+    active_product = payload.get("active_product")
     
     # Initialize Session Logger
     session_logger = SessionLogger(settings.log_dir, req.conversation_id)
@@ -89,7 +90,16 @@ async def chat(req: ChatRequest):
 
     try:
         # Create Context
-        ctx = ToolContext(store=store, mailer=mailer, locale=req.locale, settings=settings, slots=slots, session_logger=session_logger)
+        ctx = ToolContext(
+            store=store, 
+            mailer=mailer, 
+            locale=req.locale, 
+            settings=settings, 
+            slots=slots, 
+            active_product=active_product, 
+            conversation_id=req.conversation_id, 
+            session_logger=session_logger
+        )
 
         current_messages = messages
         MAX_TURNS = 2
